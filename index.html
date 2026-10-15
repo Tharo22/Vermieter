@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Vermietung">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F0EEF3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121019" media="(prefers-color-scheme: dark)">
+<meta name="format-detection" content="telephone=no">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Vermietung</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: fünf Bereiche in der Tab-Leiste (Übersicht, Mieteingang, Verträge, Abrechnung, Rechner). Fristen stehen oben auf der Übersicht, Zahlen in Mono wie auf einem Kontoauszug. */
+:root{
+  color-scheme:light;
+  --bg:#F0EEF3; --surface:#FFFFFF; --surface2:#F5F3F8; --ink:#1B1626; --muted:#62596F; --line:#DAD5E1;
+  --accent:#5B3F8C; --accent-ink:#FFFFFF; --accent-soft:#E8E0F5;
+  --good:#17804F; --good-soft:#DCF2E6; --mid:#8F5F00; --mid-soft:#FBEECB; --bad:#B3302F; --bad-soft:#F8DDDC;
+  --font-body:'IBM Plex Sans',-apple-system,'Segoe UI',system-ui,sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  padding-top:env(safe-area-inset-top,0px);
+}
+@media (prefers-color-scheme: dark){:root{
+  color-scheme:dark;
+  --bg:#121019; --surface:#1B1825; --surface2:#221E2E; --ink:#EAE6F2; --muted:#A79FB8; --line:#2E2840;
+  --accent:#B9A2F0; --accent-ink:#17102A; --accent-soft:#2A2145;
+  --good:#47C48A; --good-soft:#12301F; --mid:#E3B341; --mid-soft:#352A0E; --bad:#F27F7D; --bad-soft:#3A1717;}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.45;padding-inline:16px;padding-block:0 110px}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--accent)}
+.wrap{max-width:680px;margin-inline:auto}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;margin-inline:-16px;padding:10px 16px;background:var(--bg);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.bar h1{font-size:18px;font-weight:600;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .sub{display:block;font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.back{border:0;background:var(--accent-soft);color:var(--accent);border-radius:10px;min-height:40px;padding:0 12px;font-weight:600;display:inline-flex;align-items:center;text-decoration:none}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;min-height:42px;padding:0 14px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn.small{min-height:34px;padding:0 10px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.lnk{border:0;background:none;color:var(--accent);padding:4px 0;font-size:13px;font-weight:600;text-decoration:underline;text-underline-offset:2px}
+main{padding-block:14px 0}
+h2{font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:22px 4px 8px}
+h2:first-child{margin-top:2px}
+.note{font-size:13px;color:var(--muted);margin:8px 4px}
+.row-actions{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.p-good{background:var(--good-soft);color:var(--good)} .p-mid{background:var(--mid-soft);color:var(--mid)} .p-bad{background:var(--bad-soft);color:var(--bad)} .p-none{background:var(--surface2);color:var(--muted)} .p-acc{background:var(--accent-soft);color:var(--accent)}
+.t-good{color:var(--good)} .t-mid{color:var(--mid)} .t-bad{color:var(--bad)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.cards{display:flex;flex-direction:column;gap:10px}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:14px;padding:26px 18px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-size:17px;margin-bottom:6px}
+.empty .row-actions{justify-content:center;margin:14px 0 0}
+.warn{background:var(--mid-soft);border:1px solid var(--mid);border-radius:12px;padding:10px 12px;font-size:13.5px;margin:0 0 10px}
+
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 12px;min-width:0}
+.kpi .l{font-size:12px;color:var(--muted);line-height:1.3;overflow-wrap:anywhere}
+.kpi .v{font-family:var(--font-mono);font-weight:600;font-size:17px;margin-top:3px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.kpi .s{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.3}
+
+.list .li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:12px 14px;border-top:1px solid var(--line);align-items:center;text-decoration:none;color:var(--ink)}
+.list .li:first-child{border-top:0}
+.li .a{font-weight:500} .li .b{font-size:12.5px;color:var(--muted)} .li .r{text-align:right}
+.li.over{box-shadow:inset 4px 0 0 var(--bad)} .li.soon{box-shadow:inset 4px 0 0 var(--mid)}
+.when{font-family:var(--font-mono);font-size:12.5px;font-weight:600}
+
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 10px;padding:14px}
+.fld{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:12.5px;color:var(--muted)}
+.fld.full{grid-column:1/-1}
+.fld input,.fld select,.fld textarea{width:100%;min-width:0;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:10px 11px;font-size:16px;color:var(--ink)}
+.fld input[data-ty="num"]{font-family:var(--font-mono);text-align:right}
+.fld textarea{min-height:84px;resize:vertical;line-height:1.4}
+.unit{position:relative;display:block}
+.unit input{padding-right:46px}
+.unit i{position:absolute;right:11px;top:50%;transform:translateY(-50%);font-style:normal;color:var(--muted);font-size:13px;pointer-events:none}
+.sep{border-top:1px solid var(--line)}
+
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:3px;margin-bottom:12px}
+.seg button{border:0;background:none;border-radius:7px;padding:9px 4px;font-size:14px;font-weight:500;color:var(--muted);min-height:40px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.mnav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.mnav b{font-size:16px}
+.mnav .btn{min-width:48px}
+
+.tcard{display:block;text-decoration:none;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px 14px}
+.tcard .t{font-weight:600;font-size:16px} .tcard .a{font-size:13px;color:var(--muted);margin-top:1px}
+.tcard .m{display:flex;flex-wrap:wrap;gap:2px 14px;margin-top:8px;font-size:13px;color:var(--muted)}
+.tcard .m b{font-family:var(--font-mono);font-weight:500;color:var(--ink)}
+.tcard .p{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+
+.kv{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:11px 14px;border-top:1px solid var(--line);align-items:baseline}
+.kv:first-child{border-top:0}
+.kv b{font-family:var(--font-mono);font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+.kv small{display:block;color:var(--muted);font-size:12px;font-weight:400;font-family:var(--font-body)}
+.kv.tot{background:var(--surface2)}
+.chk{display:flex;gap:10px;align-items:flex-start;padding:9px 14px;border-top:1px solid var(--line);font-size:14px}
+.chk:first-child{border-top:0}
+.chk .ok{color:var(--good);font-weight:700;width:18px;flex:none} .chk .no{color:var(--bad);font-weight:700;width:18px;flex:none}
+
+.prow{display:grid;grid-template-columns:minmax(0,1fr) 108px 28px 30px;gap:8px;padding:8px 14px;border-top:1px solid var(--line);align-items:center}
+.prow input[type=text]{width:100%;min-width:0;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:16px}
+.prow input[data-ty="num"]{font-family:var(--font-mono);text-align:right}
+.prow input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent)}
+.prow button{border:0;background:none;color:var(--bad);font-size:20px;line-height:1;min-height:36px}
+.crow{padding:12px 14px;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.crow:first-child{border-top:0}
+.crow .full{grid-column:1/-1}
+.crow label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted);min-width:0}
+.crow input,.crow select{width:100%;min-width:0;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:16px}
+.crow input[data-ty="num"]{font-family:var(--font-mono);text-align:right}
+.code{width:100%;min-height:150px;background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:10px;font-family:var(--font-mono);font-size:12px;line-height:1.5}
+
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:6;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px;background:var(--surface);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))}
+.tabbar a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:7px 2px;border-radius:10px;text-decoration:none;color:var(--muted);font-size:12.5px;font-weight:500;min-height:50px;text-align:center;line-height:1.15}
+.tabbar a[aria-current="page"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+(function(){
+'use strict';
+
+/* ---------- Hilfen ---------- */
+const $=(s,r)=>(r||document).querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const nfC={}; const nf=d=>nfC[d]||(nfC[d]=new Intl.NumberFormat('de-DE',{minimumFractionDigits:d,maximumFractionDigits:d}));
+const eur=(v,sign)=>(v===null||v===undefined||!isFinite(v))?'–':new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0,signDisplay:sign?'exceptZero':'auto'}).format(v);
+const eur2=(v,sign)=>(v===null||v===undefined||!isFinite(v))?'–':new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2,signDisplay:sign?'exceptZero':'auto'}).format(v);
+const pct=(v,d)=>(v===null||!isFinite(v))?'–':nf(d==null?1:d).format(v)+' %';
+const fmtIn=(v,d)=>(v===null||v===undefined||v===''||!isFinite(v)||v===0)?'':nf(d==null?2:d).format(v).replace(/,00$/,'');
+function parseDE(str){
+  let t=String(str).trim().replace(/[\s€%²m]/g,'').replace(/−/g,'-');
+  if(!t) return null;
+  if(t.includes(',')) t=t.replace(/\./g,'').replace(',','.');
+  else if(/^-?\d{1,3}(\.\d{3})+$/.test(t)) t=t.replace(/\./g,'');
+  const v=parseFloat(t); return isFinite(v)?v:null;
+}
+const r2=v=>Math.round(v*100)/100;
+const p2=n=>String(n).padStart(2,'0');
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const MON=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+function today(){ const d=new Date(); return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()); }
+const ymOf=d=>(d||'').slice(0,7);
+function addM(ym,n){ let [y,m]=ym.split('-').map(Number); m+=n; y+=Math.floor((m-1)/12); m=(((m-1)%12)+12)%12+1; return y+'-'+p2(m); }
+function diffM(a,b){ const [y1,m1]=a.split('-').map(Number),[y2,m2]=b.split('-').map(Number); return (y2-y1)*12+(m2-m1); }
+const dim=ym=>{ const [y,m]=ym.split('-').map(Number); return new Date(y,m,0).getDate(); };
+const fmtYm=ym=>ym?(MON[+ym.slice(5,7)-1]+' '+ym.slice(0,4)):'';
+const fmtD=d=>d?(d.slice(8,10)+'.'+d.slice(5,7)+'.'+d.slice(0,4)):'';
+const daysBetween=(a,b)=>Math.round((Date.UTC(+b.slice(0,4),+b.slice(5,7)-1,+b.slice(8,10))-Date.UTC(+a.slice(0,4),+a.slice(5,7)-1,+a.slice(8,10)))/86400000);
+const isLeap=y=>(y%4===0&&y%100!==0)||y%400===0;
+const monthsList=(a,b)=>{ const o=[]; for(let m=a;m<=b;m=addM(m,1)) o.push(m); return o; };
+
+/* ---------- Daten ---------- */
+const KEY='vermietung-v1';
+let db={v:1,objs:[],tens:[],pays:[],abr:{},settings:{kappung:20}};
+let storageOk=true;
+function load(){ try{ const raw=localStorage.getItem(KEY); if(raw){ const d=JSON.parse(raw); if(d&&Array.isArray(d.objs)){ db=Object.assign(db,d); db.settings=Object.assign({kappung:20},d.settings||{}); db.abr=db.abr||{}; } } }catch(e){ storageOk=false; } }
+let saveT=null;
+function save(){ clearTimeout(saveT); saveT=setTimeout(flush,250); }
+function flush(){ try{ localStorage.setItem(KEY,JSON.stringify(db)); }catch(e){ storageOk=false; } }
+window.addEventListener('pagehide',flush);
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) flush(); });
+
+const getObj=id=>db.objs.find(o=>o.id===id);
+const getTen=id=>db.tens.find(t=>t.id===id);
+function newObj(x){ const o=Object.assign({id:uid(),name:'',adresse:'',qm:0},x||{}); db.objs.push(o); return o; }
+function newTen(objId,x){
+  const t=Object.assign({id:uid(),objId,mieter:'',tel:'',mail:'',personen:0,start:'',ende:'',kalt0:0,nk:0,stell:0,art:'fest',idxBasis:null,idxMonat:'',
+    kaution:{betrag:0,eingang:'',anlage:'',rueck:''},changes:[],notiz:''},x||{});
+  db.tens.push(t); return t;
+}
+
+/* ---------- Mietberechnung ---------- */
+function stateAt(t,ym){
+  let kalt=t.kalt0||0, nk=t.nk||0;
+  (t.changes||[]).slice().sort((a,b)=>a.ab<b.ab?-1:(a.ab>b.ab?1:0)).forEach(c=>{
+    if(c.ab&&c.ab<=ym){ if(c.kalt!==null&&c.kalt!==undefined) kalt=c.kalt; if(c.nk!==null&&c.nk!==undefined) nk=c.nk; }
+  });
+  return {kalt,nk};
+}
+function occ(t,ym){
+  const n=dim(ym), first=ym+'-01', last=ym+'-'+p2(n);
+  const s=t.start||'0000-01-01', e=t.ende||'9999-12-31';
+  if(e<first||s>last) return 0;
+  const a=s>first?s:first, b=e<last?e:last;
+  return (+b.slice(8,10)-+a.slice(8,10)+1)/n;
+}
+function soll(t,ym){
+  const f=occ(t,ym); if(!f) return null;
+  const st=stateAt(t,ym);
+  return {f,kalt:st.kalt*f,nk:st.nk*f,stell:(t.stell||0)*f,total:(st.kalt+st.nk+(t.stell||0))*f};
+}
+const ist=(t,ym)=>db.pays.filter(p=>p.tid===t.id&&p.monat===ym).reduce((s,p)=>s+(p.betrag||0),0);
+function cutoffYm(){ const d=today(); const ym=ymOf(d); return +d.slice(8,10)>=4?ym:addM(ym,-1); }
+function saldo(t){
+  if(!t.start) return 0;
+  const to=cutoffYm(), from=ymOf(t.start); if(from>to) return 0;
+  let s=0; monthsList(from,to).forEach(m=>{ const so=soll(t,m); if(so) s+=so.total-ist(t,m); });
+  // Zahlungen für Monate nach dem Stichtag mindern den Saldo ebenfalls
+  db.pays.filter(p=>p.tid===t.id&&p.monat>to).forEach(p=>{ s-=p.betrag||0; });
+  return r2(s);
+}
+const isActive=(t,d)=>{ d=d||today(); return (!t.start||t.start<=d)&&(!t.ende||t.ende>=d); };
+const lastChangeYm=t=>{ const c=(t.changes||[]).filter(x=>x.ab&&x.ab<=ymOf(today())&&x.kalt!==null&&x.kalt!==undefined).map(x=>x.ab).sort(); return c.length?c[c.length-1]:(t.start?ymOf(t.start):''); };
+const ART={fest:'Festmiete',staffel:'Staffelmiete',index:'Indexmiete'};
+
+/* ---------- Fristen ---------- */
+function deadlines(){
+  const out=[], td=today(), curY=+td.slice(0,4);
+  const add=(date,t,sub,kind,tid)=>{
+    const diff=daysBetween(td,date);
+    out.push({date,t,sub,kind,tid,state:diff<0?'over':(diff<=60?'soon':'later')});
+  };
+  db.tens.forEach(t=>{
+    const o=getObj(t.objId)||{name:'?'}, who=(o.name||'Wohnung')+(t.mieter?' · '+t.mieter:'');
+    const ended=t.ende&&t.ende<td;
+    if(!ended){
+      (t.changes||[]).forEach(c=>{ if(c.grund==='staffel'&&c.ab&&c.ab+'-01'>=td&&c.kalt!==null) add(c.ab+'-01','Staffelstufe: Kaltmiete '+eur2(c.kalt),who,'staffel',t.id); });
+      if(t.art==='index'){ const n=addM(lastChangeYm(t)||ymOf(td),12)+'-01'; add(n,'Indexanpassung prüfen',who+' · frühestens ab '+fmtD(n),'index',t.id); }
+      if(t.art==='fest'&&t.start){ const n=addM(lastChangeYm(t),12)+'-01'; add(n,'Mieterhöhung prüfen (Vergleichsmiete)',who+' · Verlangen frühestens ab '+fmtD(n),'fest',t.id); }
+    }
+    if(t.ende&&t.ende>=td) add(t.ende,'Mietverhältnis endet',who,'ende',t.id);
+    if(t.ende&&(t.kaution||{}).betrag>0&&!t.kaution.rueck){ const d=addM(ymOf(t.ende),6)+'-'+p2(Math.min(+t.ende.slice(8,10),dim(addM(ymOf(t.ende),6)))); add(d,'Kaution abrechnen und zurückzahlen',who+' · übliche Prüffrist bis etwa 6 Monate nach Auszug','kaution',t.id); }
+    if(t.start){
+      const y0=+t.start.slice(0,4), y1=t.ende?Math.min(+t.ende.slice(0,4),curY-1):curY-1;
+      for(let y=y0;y<=y1;y++){ const rec=db.abr[t.id+'-'+y]; if(!(rec&&rec.versendet)) add((y+1)+'-12-31','Nebenkostenabrechnung '+y+' versenden',who+' · Frist 12 Monate nach Ende des Zeitraums','abr',t.id); }
+    }
+    const s=saldo(t); if(s>0.5) add(td,'Rückstand '+eur2(s),who,'pay',t.id);
+  });
+  return out.sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
+}
+
+/* ---------- Nebenkostenabrechnung ---------- */
+const DEFAULT_POS=['Grundsteuer','Wasser und Abwasser','Müllabfuhr','Gebäudeversicherung','Hausreinigung','Hauswart','Gartenpflege','Allgemeinstrom','Aufzug','Schornsteinfeger','Heizung und Warmwasser'];
+function abrRec(tid,year){
+  const k=tid+'-'+year;
+  if(!db.abr[k]) db.abr[k]={pos:DEFAULT_POS.map(n=>({n,b:0,u:true})),vor:null,versendet:'',note:''};
+  return db.abr[k];
+}
+function abrCalc(t,year,rec){
+  const days=isLeap(year)?366:365, ys=year+'-01-01', ye=year+'-12-31';
+  const s=(t.start&&t.start>ys)?t.start:ys, e=(t.ende&&t.ende<ye)?t.ende:ye;
+  const used=s<=e?daysBetween(s,e)+1:0, anteil=used/days;
+  const kosten=rec.pos.filter(p=>p.u).reduce((a,p)=>a+(p.b||0),0);
+  const mieter=r2(kosten*anteil);
+  let vorSoll=0; monthsList(year+'-01',year+'-12').forEach(m=>{ const so=soll(t,m); if(so) vorSoll+=so.nk; });
+  vorSoll=r2(vorSoll);
+  const vor=(rec.vor!==null&&rec.vor!==undefined&&rec.vor!=='')?rec.vor:vorSoll;
+  const saldoA=r2(mieter-vor);
+  return {days,used,anteil,kosten,mieter,vorSoll,vor,saldo:saldoA,s,e,neuVor:used>0?Math.ceil(kosten/12):0};
+}
+function abrText(t,year,rec,c){
+  const o=getObj(t.objId)||{};
+  let x='Nebenkostenabrechnung '+year+'\n';
+  x+='Wohnung: '+(o.name||'')+(o.adresse?', '+o.adresse:'')+'\nMieter: '+(t.mieter||'')+'\n';
+  x+='Zeitraum: '+fmtD(c.s)+' bis '+fmtD(c.e)+' ('+c.used+' von '+c.days+' Tagen)\n\nUmlagefähige Kosten der Wohnung:\n';
+  rec.pos.filter(p=>p.u&&p.b).forEach(p=>{ x+='- '+p.n+': '+eur2(p.b)+'\n'; });
+  x+='Summe: '+eur2(c.kosten)+'\nAnteil des Mieters ('+nf(2).format(c.anteil*100)+' %): '+eur2(c.mieter)+'\nGeleistete Vorauszahlungen: '+eur2(c.vor)+'\n\n';
+  x+=c.saldo>=0?'Nachzahlung: '+eur2(c.saldo):'Guthaben: '+eur2(-c.saldo);
+  x+='\nVorschlag neue Vorauszahlung: '+eur2(c.neuVor)+' pro Monat\n';
+  return x;
+}
+
+/* ---------- Routing ---------- */
+function route(){
+  const p=location.hash.replace(/^#\/?/,'').split('/').filter(Boolean);
+  switch(p[0]){
+    case 'miete': return {v:'pay'};
+    case 'vertraege': return {v:'ten'};
+    case 't': return getTen(p[1])?{v:'tdet',id:p[1]}:{v:'ten'};
+    case 'abrechnung': return {v:'abr'};
+    case 'rechner': return {v:'calc'};
+    case 'einstellungen': return {v:'set'};
+    default: return {v:'home'};
+  }
+}
+function nav(h){ if(location.hash===h) render(true); else location.hash=h; }
+window.addEventListener('hashchange',()=>render());
+
+/* ---------- UI-Zustand ---------- */
+let payMonth=ymOf(today()), payForm=null, abrT=null, abrY=+today().slice(0,4)-1, calcTab='index', pend=null, pendT=null;
+const calc={index:{},vgl:{},mod:{}};
+function twice(key){ if(pend===key){ pend=null; return true; } pend=key; clearTimeout(pendT); pendT=setTimeout(()=>{ pend=null; render(true); },4000); render(true); return false; }
+let toastT=null;
+function toast(msg){
+  let t=$('#toast');
+  if(!t){ t=document.createElement('div'); t.id='toast'; t.setAttribute('role','status');
+    t.style.cssText='position:fixed;left:16px;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:30;max-width:560px;margin:auto;background:var(--ink);color:var(--bg);padding:11px 14px;border-radius:12px;font-size:14px;text-align:center';
+    document.body.appendChild(t); }
+  t.textContent=msg; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>{ t.hidden=true; },2600);
+}
+
+/* ---------- Formularhelfer ---------- */
+function F(label,ref,val,ty,o){
+  o=o||{};
+  const v=ty==='num'?fmtIn(val,o.d):(val==null?'':val);
+  const im=ty==='num'?' inputmode="decimal"':'';
+  return `<label class="fld ${o.full?'full':''}">${label}<span class="${o.unit?'unit':''}"><input type="${o.type||'text'}"${im} data-ref="${ref}" data-ty="${ty}" ${ty==='num'?`data-d="${o.d==null?2:o.d}"`:''} value="${esc(v)}" ${o.ph?`placeholder="${esc(o.ph)}"`:''} autocomplete="off">${o.unit?`<i>${o.unit}</i>`:''}</span></label>`;
+}
+function getRef(ref){
+  const p=ref.split(':'), sc=p[0];
+  if(sc==='o') return {obj:getObj(p[1]),key:p[2]};
+  if(sc==='t') return {obj:getTen(p[1]),key:p[2]};
+  if(sc==='c'){ const t=getTen(p[1]); return {obj:t&&t.changes[+p[2]],key:p[3]}; }
+  if(sc==='s') return {obj:db.settings,key:p[1]};
+  if(sc==='ab'){ const rec=db.abr[p[1]]; if(!rec) return {}; if(p[2]==='pos') return {obj:rec.pos[+p[3]],key:p[4]}; return {obj:rec,key:p[2]}; }
+  if(sc==='k') return {obj:calc[p[1]],key:p[2]};
+  return {};
+}
+function setPath(obj,key,val){
+  const ks=key.split('.'); let o=obj; for(let i=0;i<ks.length-1;i++){ o[ks[i]]=o[ks[i]]||{}; o=o[ks[i]]; } o[ks[ks.length-1]]=val;
+}
+function getPath(obj,key){ return key.split('.').reduce((o,k)=>o&&o[k],obj); }
+
+/* ---------- Ansichten ---------- */
+function bar(title,sub,back,extra){
+  return `<div class="bar">${back?`<a class="back" href="${back}" data-nav>‹ Zurück</a>`:''}<h1>${sub?`<span class="sub">${esc(sub)}</span>`:''}${esc(title)}</h1>${extra||''}</div>`;
+}
+function tabbar(cur){
+  const t=[['home','#/','Übersicht'],['pay','#/miete','Mieteingang'],['ten','#/vertraege','Verträge'],['abr','#/abrechnung','Abrechnung'],['calc','#/rechner','Rechner']];
+  return `<nav class="tabbar" aria-label="Bereiche">${t.map(([id,h,l])=>`<a href="${h}" data-nav ${(cur===id||(cur==='tdet'&&id==='ten'))?'aria-current="page"':''}>${l}</a>`).join('')}</nav>`;
+}
+function kpi(l,v,s,cls){ return `<div class="kpi"><div class="l">${l}</div><div class="v ${cls||''}">${v}</div>${s?`<div class="s">${s}</div>`:''}</div>`; }
+
+function tenName(t){ const o=getObj(t.objId)||{}; return (o.name||'Wohnung')+(t.mieter?' · '+t.mieter:''); }
+
+function viewHome(){
+  const td=today(), ym=ymOf(td);
+  const act=db.tens.filter(t=>isActive(t,td));
+  let kalt=0,warm=0,qmSum=0,kaltQm=0;
+  act.forEach(t=>{ const st=stateAt(t,ym), o=getObj(t.objId)||{}; kalt+=st.kalt; warm+=st.kalt+st.nk+(t.stell||0); if(o.qm>0){ qmSum+=o.qm; kaltQm+=st.kalt; } });
+  const rueck=db.tens.reduce((s,t)=>s+Math.max(0,saldo(t)),0);
+  const leer=db.objs.filter(o=>!act.some(t=>t.objId===o.id)).length;
+  const y=+td.slice(0,4); let jahr=0; db.tens.forEach(t=>monthsList(y+'-01',y+'-12').forEach(m=>{ const so=soll(t,m); if(so) jahr+=so.kalt+so.stell; }));
+  const dl=deadlines(), shown=dl.filter(d=>d.state!=='later').concat(dl.filter(d=>d.state==='later').slice(0,4)).slice(0,12);
+  let h=bar('Vermietung','Übersicht',null,`<a class="btn small" href="#/einstellungen" data-nav>Einstellungen</a>`)+'<main>';
+  if(!storageOk) h+=`<div class="warn">Speichern im Browser ist nicht möglich. Deine Eingaben gehen beim Schließen verloren.</div>`;
+  if(!db.tens.length){
+    h+=`<div class="empty"><b>Noch keine Mietverhältnisse</b>Lege eine Wohnung mit Mieter an. Die App rechnet dann Mietverlauf, Fristen, Mieteingang und Nebenkostenabrechnung.
+      <div class="row-actions"><button class="btn primary" data-act="newten">Wohnung anlegen</button><button class="btn" data-act="sample">Beispiel ansehen</button></div></div>`;
+    return h+'</main>'+tabbar('home');
+  }
+  h+=`<div class="kpis">${kpi('Kaltmiete pro Monat',eur(kalt),'Warmmiete '+eur(warm))+kpi('Kaltmiete im Jahr '+y,eur(jahr),'Soll inkl. Stellplatz')+
+    kpi('Offene Beträge',eur(rueck),rueck>0?'Zahlungsrückstand':'Alles bezahlt',rueck>0?'t-bad':'t-good')+kpi('Ø Kaltmiete pro m²',qmSum>0?eur2(kaltQm/qmSum):'–',leer?leer+' Wohnung'+(leer>1?'en':'')+' ohne Mieter':'Alle Wohnungen vermietet')}</div>`;
+  h+=`<h2>Fristen und Termine</h2>`;
+  h+=shown.length?`<div class="card list">${shown.map(d=>`<a class="li ${d.state}" href="${d.kind==='abr'?'#/abrechnung':(d.kind==='pay'?'#/miete':'#/t/'+d.tid)}" data-nav data-dl="${d.kind}" data-tid="${d.tid}" data-dy="${d.date.slice(0,4)}"><span class="a">${esc(d.t)}</span><span class="r when ${d.state==='over'?'t-bad':(d.state==='soon'?'t-mid':'')}">${fmtD(d.date)}</span><span class="b">${esc(d.sub)}</span><span></span></a>`).join('')}</div>`:`<div class="empty">Keine anstehenden Fristen.</div>`;
+  h+=`<h2>Wohnungen</h2><div class="cards">${db.objs.map(o=>{
+    const t=db.tens.filter(x=>x.objId===o.id).sort((a,b)=>(b.start||'')<(a.start||'')?-1:1)[0], a=t&&isActive(t,td);
+    if(!t) return `<div class="tcard"><div class="t">${esc(o.name||'Wohnung')}</div><div class="a">${esc(o.adresse)}</div><div class="p"><span class="pill p-none">Kein Mietverhältnis</span></div></div>`;
+    const st=stateAt(t,ym), s=saldo(t);
+    return `<a class="tcard" href="#/t/${t.id}" data-nav><div class="t">${esc(o.name||'Wohnung')}</div><div class="a">${a?esc(t.mieter||'Mieter ohne Namen'):'Leer, zuletzt '+esc(t.mieter||'')}</div>
+      <div class="m"><span><b>${eur2(st.kalt)}</b> kalt</span>${o.qm>0?`<span><b>${eur2(st.kalt/o.qm)}</b>/m²</span>`:''}</div>
+      <div class="p"><span class="pill p-acc">${ART[t.art]}</span>${a?(s>0.5?`<span class="pill p-bad">Rückstand ${eur(s)}</span>`:'<span class="pill p-good">Zahlungen in Ordnung</span>'):'<span class="pill p-none">Leer</span>'}</div></a>`; }).join('')}</div>`;
+  return h+'</main>'+tabbar('home');
+}
+
+function viewPay(){
+  const cur=ymOf(today()), td=today();
+  const rows=db.tens.filter(t=>occ(t,payMonth)>0);
+  let totS=0,totI=0;
+  const items=rows.map(t=>{
+    const so=soll(t,payMonth), is=ist(t,payMonth); totS+=so.total; totI+=is;
+    const rest=r2(so.total-is);
+    let pill;
+    if(payMonth>cur) pill='<span class="pill p-none">Geplant</span>';
+    else if(rest<=0.005) pill='<span class="pill p-good">Bezahlt</span>';
+    else if(is>0) pill=`<span class="pill p-mid">Teilweise, ${eur2(rest)} offen</span>`;
+    else if(payMonth<cur||+td.slice(8,10)>3) pill='<span class="pill p-bad">Überfällig</span>';
+    else pill='<span class="pill p-none">Offen</span>';
+    const pays=db.pays.filter(p=>p.tid===t.id&&p.monat===payMonth).sort((a,b)=>a.datum<b.datum?-1:1);
+    const form=payForm===t.id?`<div class="fields" style="border-top:1px solid var(--line)">
+        <label class="fld">Datum<input type="date" id="pf-d" value="${td}"></label>
+        <label class="fld">Betrag<span class="unit"><input id="pf-b" inputmode="decimal" data-ty="num" style="font-family:var(--font-mono);text-align:right" value="${fmtIn(Math.max(rest,0))}"><i>€</i></span></label>
+        <label class="fld full">Notiz<input type="text" id="pf-n" placeholder="z. B. Überweisung"></label>
+        <div class="full row-actions" style="margin:0"><button class="btn primary" data-act="paysave" data-id="${t.id}">Speichern</button><button class="btn" data-act="payform" data-id="">Abbrechen</button></div></div>`:'';
+    return `<div class="card" style="margin-bottom:10px"><div class="kv"><span><b style="font-family:var(--font-body)">${esc(tenName(t))}</b><small>Soll ${eur2(so.total)} (kalt ${eur2(so.kalt)}, Nebenkosten ${eur2(so.nk)}${so.stell?`, Stellplatz ${eur2(so.stell)}`:''})${so.f<1?' · anteilig':''}</small></span><span>${pill}</span></div>
+      <div class="kv"><span>Eingegangen</span><b>${eur2(is)}</b></div>
+      ${pays.map(p=>`<div class="kv"><span><small>${fmtD(p.datum)}${p.note?' · '+esc(p.note):''}</small></span><span><b>${eur2(p.betrag)}</b> <button class="lnk" data-act="paydel" data-id="${p.id}">${pend==='pd'+p.id?'Sicher?':'Löschen'}</button></span></div>`).join('')}
+      ${form||`<div style="padding:10px 14px;border-top:1px solid var(--line)"><button class="btn small" data-act="payform" data-id="${t.id}">Zahlung erfassen</button> ${rest>0.005&&payMonth<=cur?`<button class="btn small" data-act="payfull" data-id="${t.id}">Voll bezahlt heute</button>`:''}</div>`}</div>`;
+  }).join('');
+  return bar('Mieteingang','Zahlungen')+`<main><div class="mnav"><button class="btn" data-act="pm" data-v="-1" aria-label="Vormonat">‹</button><b>${MON[+payMonth.slice(5,7)-1]} ${payMonth.slice(0,4)}</b><button class="btn" data-act="pm" data-v="1" aria-label="Folgemonat">›</button></div>
+   ${rows.length?`<div class="kpis" style="margin-bottom:12px">${kpi('Soll',eur2(totS))}${kpi('Eingegangen',eur2(totI),totS-totI>0.005?'Offen '+eur2(totS-totI):'Vollständig',totS-totI>0.005?'':'t-good')}</div>${items}`:`<div class="empty"><b>Kein Mietverhältnis in diesem Monat</b>Wähle einen anderen Monat oder lege ein Mietverhältnis an.</div>`}
+   <p class="note">Fällig sind Zahlungen laut Gesetz bis zum dritten Werktag, die App wertet ab dem 4. des Monats als überfällig. Erste und letzte Monate werden anteilig berechnet.</p></main>`+tabbar('pay');
+}
+
+function viewTen(){
+  const cards=db.objs.map(o=>{
+    const ts=db.tens.filter(t=>t.objId===o.id).sort((a,b)=>(b.start||'')<(a.start||'')?-1:1);
+    return `<h2>${esc(o.name||'Wohnung')}${o.adresse?' · '+esc(o.adresse):''}</h2><div class="cards">${ts.map(t=>{
+      const st=stateAt(t,ymOf(today())), a=isActive(t);
+      return `<a class="tcard" href="#/t/${t.id}" data-nav><div class="t">${esc(t.mieter||'Mieter ohne Namen')}</div><div class="a">${t.start?'seit '+fmtD(t.start):'Beginn offen'}${t.ende?' bis '+fmtD(t.ende):''}</div>
+        <div class="m"><span><b>${eur2(st.kalt)}</b> kalt</span><span><b>${eur2(st.kalt+st.nk+(t.stell||0))}</b> warm</span>${o.qm>0?`<span><b>${eur2(st.kalt/o.qm)}</b>/m²</span>`:''}</div>
+        <div class="p"><span class="pill p-acc">${ART[t.art]}</span>${a?'<span class="pill p-good">Läuft</span>':'<span class="pill p-none">Beendet</span>'}${(t.kaution||{}).betrag>0?`<span class="pill p-none">Kaution ${eur(t.kaution.betrag)}</span>`:''}</div></a>`; }).join('')||'<div class="empty">Kein Mietverhältnis</div>'}</div>`;
+  }).join('');
+  return bar('Verträge','Mietverhältnisse')+`<main><div class="row-actions"><button class="btn primary" data-act="newten">Wohnung anlegen</button></div>${cards||`<div class="empty"><b>Noch keine Wohnung</b>Lege die erste Wohnung mit Mieter an.</div>`}</main>`+tabbar('ten');
+}
+
+function chgRow(t,c,i){
+  return `<div class="crow"><label>Gültig ab (Monat)<input type="month" data-ref="c:${t.id}:${i}:ab" data-ty="txt" value="${esc(c.ab||'')}"></label>
+    <label>Grund<select data-ref="c:${t.id}:${i}:grund" data-ty="txt"><option value="staffel" ${c.grund==='staffel'?'selected':''}>Staffelstufe</option><option value="index" ${c.grund==='index'?'selected':''}>Indexanpassung</option><option value="vergleich" ${c.grund==='vergleich'?'selected':''}>Vergleichsmiete</option><option value="modern" ${c.grund==='modern'?'selected':''}>Modernisierung</option><option value="manuell" ${(!c.grund||c.grund==='manuell')?'selected':''}>Vereinbarung</option></select></label>
+    <label>Neue Kaltmiete<span class="unit"><input inputmode="decimal" data-ref="c:${t.id}:${i}:kalt" data-ty="num" data-d="2" value="${fmtIn(c.kalt,2)}"><i>€</i></span></label>
+    <label>Neue Nebenkosten-Vorauszahlung<span class="unit"><input inputmode="decimal" data-ref="c:${t.id}:${i}:nk" data-ty="num" data-d="2" data-null="1" value="${c.nk===null||c.nk===undefined?'':fmtIn(c.nk,2)}" placeholder="unverändert"><i>€</i></span></label>
+    <div class="full"><button class="lnk" data-act="delchg" data-id="${t.id}" data-i="${i}">${pend==='dc'+t.id+i?'Sicher löschen?':'Eintrag löschen'}</button></div></div>`;
+}
+function tsumHtml(t,o){
+  const ym=ymOf(today()), st=stateAt(t,ym), nxt=(t.changes||[]).filter(c=>c.ab&&c.ab>ym).sort((a,b)=>a.ab<b.ab?-1:1)[0];
+  const last=lastChangeYm(t);
+  return `<div class="kv"><span>Kaltmiete heute</span><b>${eur2(st.kalt)}</b></div>
+    <div class="kv"><span>Warmmiete heute<small>Kaltmiete, Nebenkosten und Stellplatz</small></span><b>${eur2(st.kalt+st.nk+(t.stell||0))}</b></div>
+    <div class="kv"><span>Kaltmiete pro m²</span><b>${o.qm>0?eur2(st.kalt/o.qm):'–'}</b></div>
+    <div class="kv"><span>Letzte Änderung</span><b>${last?fmtYm(last):'–'}</b></div>
+    <div class="kv"><span>Nächste geplante Änderung</span><b>${nxt?fmtYm(nxt.ab)+': '+eur2(nxt.kalt):'–'}</b></div>`;
+}
+function viewTdet(r){
+  const t=getTen(r.id), o=getObj(t.objId)||{};
+  const k=t.kaution||(t.kaution={});
+  const chg=(t.changes||[]).map((c,i)=>({c,i})).sort((a,b)=>(a.c.ab||'')<(b.c.ab||'')?-1:1);
+  const warnKaut=k.betrag>0&&t.kalt0>0&&k.betrag>3*t.kalt0+0.01;
+  const stg=t.art==='staffel'?`<div class="fields sep">
+      <div class="full note" style="margin:0">Staffelstufen erzeugen: Jede Stufe muss mindestens 12 Monate gelten. Die Erhöhung wird als Betrag in Euro vereinbart.</div>
+      ${F('Erste Stufe ab','k:staffel:ab',calc.staffel&&calc.staffel.ab||'','txt',{type:'month'})}
+      ${F('Erhöhung je Stufe','k:staffel:betrag',calc.staffel&&calc.staffel.betrag,'num',{unit:'€'})}
+      ${F('Abstand','k:staffel:abstand',(calc.staffel&&calc.staffel.abstand)||12,'num',{unit:'Mon.',d:0})}
+      ${F('Anzahl Stufen','k:staffel:anzahl',(calc.staffel&&calc.staffel.anzahl)||5,'num',{d:0})}
+      <div class="full"><button class="btn" data-act="genstaffel" data-id="${t.id}">Stufen erzeugen</button></div></div>`:'';
+  const idx=t.art==='index'?`<div class="fields sep">${F('Index bei Vertragsbeginn oder letzter Anpassung','t:'+t.id+':idxBasis',t.idxBasis,'num',{d:1,full:1,ph:'z. B. 119,4'})}${F('Monat des Basisindex','t:'+t.id+':idxMonat',t.idxMonat||'','txt',{type:'month',full:1})}
+      <div class="full note" style="margin:0">Index: Verbraucherpreisindex für Deutschland (Statistisches Bundesamt). Anpassung frühestens 12 Monate nach der letzten Mietänderung, schriftlich mit Angabe der Indexwerte.</div></div>`:'';
+  return bar(o.name||'Wohnung',t.mieter||'Mietverhältnis','#/vertraege')+`<main>
+   <h2>Auf einen Blick</h2><div class="card" id="tsum">${tsumHtml(t,o)}</div>
+   <h2>Wohnung</h2><div class="card"><div class="fields">${F('Bezeichnung','o:'+o.id+':name',o.name,'txt',{full:1,ph:'z. B. Wohnung 3, 1. OG'})}${F('Adresse','o:'+o.id+':adresse',o.adresse,'txt',{full:1})}${F('Wohnfläche','o:'+o.id+':qm',o.qm,'num',{unit:'m²'})}</div></div>
+   <h2>Mieter</h2><div class="card"><div class="fields">${F('Name','t:'+t.id+':mieter',t.mieter,'txt',{full:1})}${F('Telefon','t:'+t.id+':tel',t.tel,'txt',{type:'tel'})}${F('E-Mail','t:'+t.id+':mail',t.mail,'txt',{type:'email'})}${F('Personen im Haushalt','t:'+t.id+':personen',t.personen,'num',{d:0})}</div>
+     ${t.tel?`<div class="fields sep"><a class="btn" href="tel:${esc(t.tel.replace(/[^\d+]/g,''))}">Anrufen</a></div>`:''}</div>
+   <h2>Mietvertrag</h2><div class="card"><div class="fields">${F('Mietbeginn','t:'+t.id+':start',t.start,'txt',{type:'date'})}${F('Mietende (leer = unbefristet)','t:'+t.id+':ende',t.ende,'txt',{type:'date'})}
+     <label class="fld full">Mietart<select data-ref="t:${t.id}:art" data-ty="txt" data-rerender="1"><option value="fest" ${t.art==='fest'?'selected':''}>Festmiete (Erhöhung bis zur Vergleichsmiete)</option><option value="staffel" ${t.art==='staffel'?'selected':''}>Staffelmiete</option><option value="index" ${t.art==='index'?'selected':''}>Indexmiete</option></select></label>
+     ${F('Anfangsmiete kalt','t:'+t.id+':kalt0',t.kalt0,'num',{unit:'€'})}${F('Nebenkosten-Vorauszahlung','t:'+t.id+':nk',t.nk,'num',{unit:'€'})}${F('Stellplatz oder Garage','t:'+t.id+':stell',t.stell,'num',{unit:'€'})}</div>${idx}${stg}</div>
+   <p class="note">Beträge gelten pro Monat. Eine Staffelmiete kann nicht mit einer Indexmiete kombiniert werden. Bei Staffelmiete gilt die Mietpreisbremse für die Anfangsmiete.</p>
+   <h2>Mietverlauf</h2><div class="card">${chg.length?chg.map(x=>chgRow(t,x.c,x.i)).join(''):'<div class="kv"><span class="note" style="margin:0">Noch keine Änderung seit Mietbeginn.</span><span></span></div>'}
+     <div style="padding:10px 14px;border-top:1px solid var(--line)"><button class="btn small" data-act="addchg" data-id="${t.id}">Änderung hinzufügen</button></div></div>
+   <h2>Kaution</h2><div class="card"><div class="fields">${F('Betrag','t:'+t.id+':kaution.betrag',k.betrag,'num',{unit:'€'})}${F('Eingang am','t:'+t.id+':kaution.eingang',k.eingang,'txt',{type:'date'})}${F('Anlage (Konto, Bank)','t:'+t.id+':kaution.anlage',k.anlage,'txt',{full:1})}${F('Zurückgezahlt am','t:'+t.id+':kaution.rueck',k.rueck,'txt',{type:'date',full:1})}</div></div>
+   ${warnKaut?`<div class="warn" style="margin-top:8px">Die Kaution liegt über drei Nettokaltmieten (${eur2(3*t.kalt0)}). Das ist nach dem Gesetz unzulässig.</div>`:`<p class="note">Höchstens drei Nettokaltmieten, zahlbar in drei Raten. Die Anlage muss getrennt von deinem Vermögen erfolgen.</p>`}
+   <h2>Notizen</h2><div class="card"><div class="fields">${`<label class="fld full"><span class="vh">Notizen</span><textarea data-ref="t:${t.id}:notiz" data-ty="txt" placeholder="Absprachen, Schäden, Besonderheiten">${esc(t.notiz)}</textarea></label>`}</div></div>
+   <div class="row-actions" style="margin-top:14px"><button class="btn" data-act="reletting" data-id="${t.id}">Neuer Mieter in dieser Wohnung</button><button class="btn danger" data-act="delten" data-id="${t.id}">${pend==='dt'+t.id?'Wirklich löschen?':'Mietverhältnis löschen'}</button></div></main>`+tabbar('tdet');
+}
+
+function selOptions(sel){
+  return db.tens.map(t=>`<option value="${t.id}" ${sel===t.id?'selected':''}>${esc(tenName(t))}${t.ende?' (beendet)':''}</option>`).join('');
+}
+function abrBody(t,rec,c){
+  const o=getObj(t.objId)||{};
+  const pr=rec.pos.map((p,i)=>`<div class="prow"><input type="text" data-ref="ab:${t.id}-${abrY}:pos:${i}:n" data-ty="txt" value="${esc(p.n)}" aria-label="Kostenart"><input inputmode="decimal" data-ref="ab:${t.id}-${abrY}:pos:${i}:b" data-ty="num" data-d="2" value="${fmtIn(p.b,2)}" aria-label="Betrag in Euro" placeholder="0"><input type="checkbox" data-ref="ab:${t.id}-${abrY}:pos:${i}:u" data-ty="bool" ${p.u?'checked':''} aria-label="Umlagefähig"><button data-act="delpos" data-i="${i}" aria-label="Position entfernen">×</button></div>`).join('');
+  return {pr,res:abrRes(t,rec,c)};
+}
+function abrRes(t,rec,c){
+  const txt=abrText(t,abrY,rec,c);
+  return `<div class="kv"><span>Umlagefähige Kosten der Wohnung</span><b>${eur2(c.kosten)}</b></div>
+   <div class="kv"><span>Anteil des Mieters<small>${c.used} von ${c.days} Tagen im Zeitraum</small></span><b>${eur2(c.mieter)}</b></div>
+   <div class="kv"><span>Vorauszahlungen<small>${rec.vor!==null&&rec.vor!==undefined&&rec.vor!==''?'Wert von dir eingetragen':'laut Mietverlauf berechnet, Soll '+eur2(c.vorSoll)}</small></span><b>${eur2(c.vor)}</b></div>
+   <div class="kv tot"><span>${c.saldo>=0?'Nachzahlung des Mieters':'Guthaben des Mieters'}</span><b class="${c.saldo>0?'t-bad':'t-good'}">${eur2(Math.abs(c.saldo))}</b></div>
+   <div class="kv"><span>Vorschlag neue Vorauszahlung<small>Jahreskosten der Wohnung ÷ 12, aufgerundet</small></span><b>${eur2(c.neuVor)}</b></div>
+   <div style="padding:10px 14px;border-top:1px solid var(--line)"><label class="fld">Text für das Anschreiben<textarea class="code" id="abrTxt" readonly>${esc(txt)}</textarea></label><div class="row-actions" style="margin:8px 0 0"><button class="btn small" data-act="abrcopy">Text kopieren</button></div></div>`;
+}
+function viewAbr(){
+  if(!db.tens.length) return bar('Abrechnung','Nebenkosten')+`<main><div class="empty"><b>Noch keine Mietverhältnisse</b>Lege zuerst eine Wohnung mit Mieter an.</div></main>`+tabbar('abr');
+  if(!abrT||!getTen(abrT)) abrT=db.tens[0].id;
+  const t=getTen(abrT), rec=abrRec(t.id,abrY), c=abrCalc(t,abrY,rec), b=abrBody(t,rec,c);
+  const frist=(abrY+1)+'-12-31', ver=rec.versendet;
+  return bar('Nebenkostenabrechnung','Abrechnung')+`<main>
+   <div class="card" style="margin-bottom:10px"><div class="fields" style="grid-template-columns:1fr"><label class="fld">Mietverhältnis<select id="abrSel">${selOptions(abrT)}</select></label></div></div>
+   <div class="mnav"><button class="btn" data-act="ay" data-v="-1" aria-label="Vorjahr">‹</button><b>Abrechnungsjahr ${abrY}</b><button class="btn" data-act="ay" data-v="1" aria-label="Folgejahr">›</button></div>
+   <div class="kpis" style="margin-bottom:6px">${kpi('Zeitraum',fmtD(c.s)+' bis '+fmtD(c.e),c.used+' Tage')+kpi('Frist für den Versand',fmtD(frist),ver?'Versendet am '+fmtD(ver):(daysBetween(today(),frist)<0?'Frist abgelaufen':'noch '+daysBetween(today(),frist)+' Tage'),ver?'t-good':(daysBetween(today(),frist)<0?'t-bad':''))}</div>
+   <h2>Kosten der Wohnung im Jahr ${abrY}</h2>
+   <div class="card"><div class="prow" style="font-size:11.5px;color:var(--muted);border-top:0"><span>Kostenart</span><span style="text-align:right">Betrag</span><span title="Umlagefähig">Umlage</span><span></span></div>${b.pr}
+    <div style="padding:10px 14px;border-top:1px solid var(--line)"><button class="btn small" data-act="addpos">Position hinzufügen</button></div></div>
+   <p class="note">Trage die Kosten ein, die auf diese Wohnung entfallen (zum Beispiel aus der Hausgeldabrechnung). Nicht umlagefähig sind unter anderem Verwaltung, Instandhaltung und Rücklagen. Der Kabelanschluss ist seit Juli 2024 nicht mehr über die Betriebskosten umlagefähig.</p>
+   <h2>Vorauszahlungen</h2><div class="card"><div class="fields" style="grid-template-columns:1fr">${F('Tatsächlich gezahlt (leer = laut Mietverlauf)','ab:'+t.id+'-'+abrY+':vor',rec.vor,'num',{unit:'€'})}</div></div>
+   <h2>Ergebnis</h2><div class="card" id="abrRes">${b.res}</div>
+   <h2>Versand</h2><div class="card"><div class="fields" style="grid-template-columns:1fr">${F('Abrechnung versendet am','ab:'+t.id+'-'+abrY+':versendet',rec.versendet,'txt',{type:'date'})}</div></div>
+   <p class="note">Die Abrechnung muss dem Mieter spätestens 12 Monate nach Ende des Abrechnungszeitraums zugehen, sonst entfällt in der Regel der Anspruch auf eine Nachzahlung. Heizkosten verteilt der Messdienstleister nach Verbrauch, diese Werte übernimmst du aus seiner Abrechnung.</p></main>`+tabbar('abr');
+}
+
+/* ---------- Rechner ---------- */
+function prefill(kind){
+  const c=calc[kind]; const t=getTen(c.tid); if(!t) return;
+  const o=getObj(t.objId)||{}, ym=ymOf(today());
+  c.miete=stateAt(t,ym).kalt; c.qm=o.qm||0;
+  if(kind==='index'){ c.basis=t.idxBasis; }
+  if(kind==='vgl'){ c.miete3=stateAt(t,addM(ym,-36)).kalt; c.k=db.settings.kappung; }
+}
+function wirksam(zugang,monate){ return zugang?addM(ymOf(zugang),monate):''; }
+function calcIndex(c){
+  if(!(c.miete>0&&c.basis>0&&c.neu>0)) return null;
+  const nm=r2(c.miete*c.neu/c.basis), t=getTen(c.tid), w=wirksam(c.zugang,2), last=t?lastChangeYm(t):'';
+  const frist=t&&last&&w?diffM(last,w)>=12:null;
+  return {neu:nm,diff:r2(nm-c.miete),proz:(nm/c.miete-1)*100,w,frist,last};
+}
+function calcVgl(c){
+  if(!(c.miete>0&&c.qm>0&&c.vm>0)) return null;
+  const ziel=r2(c.vm*c.qm), k=c.k||db.settings.kappung, kapp=r2((c.miete3||c.miete)*(1+k/100));
+  const max=Math.min(ziel,kapp), neu=Math.max(max,c.miete), t=getTen(c.tid), last=t?lastChangeYm(t):'', w=wirksam(c.zugang,3);
+  return {ziel,kapp,k,neu,diff:r2(neu-c.miete),proz:(neu/c.miete-1)*100,w,last,
+    f15:(last&&w)?diffM(last,w)>=15:null, f12:(last&&c.zugang)?diffM(last,ymOf(c.zugang))>=12:null, begrenzt:kapp<ziel};
+}
+function calcMod(c){
+  if(!(c.kosten>0&&c.qm>0)) return null;
+  const basis=Math.max(0,c.kosten-(c.inst||0)), jahr=basis*0.08, mon=jahr/12, qmMon=mon/c.qm;
+  const lim=((c.miete>0&&c.miete/c.qm<7)?2:3)-(c.bisher||0), cap=Math.max(0,lim), eff=Math.min(qmMon,cap), neu=r2((c.miete||0)+eff*c.qm), w=wirksam(c.zugang,3);
+  return {basis,jahr,mon:r2(mon),qmMon,cap,eff,add:r2(eff*c.qm),neu,w,begrenzt:qmMon>cap,lim:(c.miete>0&&c.miete/c.qm<7)?2:3};
+}
+function calcRes(){
+  const ct=calcTab, c=calc[ct], t=getTen(c.tid);
+  let h='', ok=null;
+  if(ct==='index'){
+    const r=calcIndex(c); if(!r) return `<p class="note">Trage Miete, Basisindex und aktuellen Index ein.</p>`;
+    h=`<div class="kv tot"><span>Neue Kaltmiete</span><b>${eur2(r.neu)}</b></div><div class="kv"><span>Erhöhung</span><b>${eur2(r.diff,true)} (${pct(r.proz,2)})</b></div>
+      <div class="kv"><span>Wirksam ab<small>Beginn des übernächsten Monats nach Zugang</small></span><b>${r.w?fmtYm(r.w):'Datum eintragen'}</b></div>
+      ${r.frist===null?'':`<div class="chk"><span class="${r.frist?'ok':'no'}">${r.frist?'✓':'✗'}</span><span>${r.frist?'Seit der letzten Mietänderung ('+fmtYm(r.last)+') sind mindestens 12 Monate vergangen.':'Seit der letzten Mietänderung ('+fmtYm(r.last)+') sind weniger als 12 Monate vergangen. Die Erhöhung ist noch nicht zulässig.'}</span></div>`}
+      <div class="chk"><span class="ok">i</span><span>Die Erklärung braucht Textform und die Indexwerte. Die geänderte Miete ist dann Grundlage für die nächste Anpassung.</span></div>`;
+    ok=r.w&&t&&r.neu>0;
+  }else if(ct==='vgl'){
+    const r=calcVgl(c); if(!r) return `<p class="note">Trage Miete, Wohnfläche und ortsübliche Vergleichsmiete pro m² ein.</p>`;
+    h=`<div class="kv tot"><span>Höchste zulässige Kaltmiete</span><b>${eur2(r.neu)}</b></div><div class="kv"><span>Erhöhung</span><b>${eur2(r.diff,true)} (${pct(r.proz,2)})</b></div>
+      <div class="kv"><span>Vergleichsmiete × Fläche</span><b>${eur2(r.ziel)}</b></div>
+      <div class="kv"><span>Kappungsgrenze<small>${nf(0).format(r.k)} % in 3 Jahren auf ${eur2(c.miete3||c.miete)}</small></span><b>${eur2(r.kapp)}</b></div>
+      ${r.begrenzt?'<div class="chk"><span class="no">!</span><span>Die Kappungsgrenze begrenzt die Erhöhung. Die Vergleichsmiete wird erst später erreicht.</span></div>':''}
+      <div class="kv"><span>Wirksam ab<small>Beginn des dritten Monats nach Zugang</small></span><b>${r.w?fmtYm(r.w):'Datum eintragen'}</b></div>
+      ${r.f12===null?'':`<div class="chk"><span class="${r.f12?'ok':'no'}">${r.f12?'✓':'✗'}</span><span>${r.f12?'Das Verlangen kommt mindestens 12 Monate nach der letzten Erhöhung.':'Das Verlangen darf frühestens 12 Monate nach der letzten Erhöhung zugehen.'}</span></div><div class="chk"><span class="${r.f15?'ok':'no'}">${r.f15?'✓':'✗'}</span><span>${r.f15?'Die Miete ist dann seit mindestens 15 Monaten unverändert.':'Die Miete muss zum Wirksamkeitszeitpunkt seit 15 Monaten unverändert sein.'}</span></div>`}
+      <div class="chk"><span class="ok">i</span><span>Das Verlangen braucht eine Begründung, zum Beispiel Mietspiegel, Gutachten oder drei Vergleichswohnungen. Der Mieter hat Zeit zur Zustimmung bis zum Ende des zweiten Monats nach Zugang.</span></div>`;
+    ok=r.w&&t&&r.neu>c.miete;
+  }else{
+    const r=calcMod(c); if(!r) return `<p class="note">Trage die Modernisierungskosten und die Wohnfläche ein.</p>`;
+    h=`<div class="kv tot"><span>Neue Kaltmiete</span><b>${eur2(r.neu)}</b></div><div class="kv"><span>Mieterhöhung pro Monat</span><b>${eur2(r.add,true)} (${eur2(r.eff)}/m²)</b></div>
+      <div class="kv"><span>Umlagefähige Kosten<small>Kosten abzüglich Instandhaltungsanteil</small></span><b>${eur2(r.basis)}</b></div>
+      <div class="kv"><span>8 % pro Jahr</span><b>${eur2(r.jahr)}</b></div>
+      <div class="kv"><span>Kappung<small>${r.lim} € pro m² innerhalb von 6 Jahren, abzüglich bereits umgelegter Beträge</small></span><b>${eur2(r.cap)}/m²</b></div>
+      ${r.begrenzt?'<div class="chk"><span class="no">!</span><span>Die Kappungsgrenze begrenzt die Erhöhung.</span></div>':''}
+      <div class="kv"><span>Wirksam ab<small>Beginn des dritten Monats nach Zugang</small></span><b>${r.w?fmtYm(r.w):'Datum eintragen'}</b></div>
+      <div class="chk"><span class="ok">i</span><span>Nur Modernisierung ist umlagefähig, keine Instandhaltung oder Reparatur. Die Erklärung muss die Maßnahme und die Berechnung nachvollziehbar darstellen.</span></div>`;
+    ok=r.w&&t&&r.add>0;
+  }
+  h+=`<div style="padding:10px 14px;border-top:1px solid var(--line)"><button class="btn primary" data-act="calcsave" ${ok?'':'disabled'}>In den Mietverlauf eintragen</button>${t?'':'<div class="note" style="margin:6px 0 0">Wähle oben ein Mietverhältnis, um die Erhöhung zu speichern.</div>'}</div>`;
+  return h;
+}
+function viewCalc(){
+  const c=calc[calcTab];
+  const sel=`<label class="fld full" style="margin-bottom:10px">Mietverhältnis<select id="calcSel"><option value="">Ohne Auswahl rechnen</option>${selOptions(c.tid)}</select></label>`;
+  let f='';
+  if(calcTab==='index') f=F('Aktuelle Kaltmiete','k:index:miete',c.miete,'num',{unit:'€'})+F('Index bei letzter Anpassung (Basis)','k:index:basis',c.basis,'num',{d:1,ph:'z. B. 119,4'})+F('Aktueller Index','k:index:neu',c.neu,'num',{d:1,ph:'z. B. 123,2'})+F('Erklärung geht zu am','k:index:zugang',c.zugang,'txt',{type:'date'});
+  else if(calcTab==='vgl') f=F('Aktuelle Kaltmiete','k:vgl:miete',c.miete,'num',{unit:'€'})+F('Wohnfläche','k:vgl:qm',c.qm,'num',{unit:'m²'})+F('Vergleichsmiete laut Mietspiegel','k:vgl:vm',c.vm,'num',{unit:'€/m²'})+F('Kaltmiete vor 3 Jahren','k:vgl:miete3',c.miete3,'num',{unit:'€'})+F('Kappungsgrenze','k:vgl:k',c.k==null?db.settings.kappung:c.k,'num',{unit:'%',d:0})+F('Verlangen geht zu am','k:vgl:zugang',c.zugang,'txt',{type:'date'});
+  else f=F('Modernisierungskosten für die Wohnung','k:mod:kosten',c.kosten,'num',{unit:'€'})+F('Davon Instandhaltungsanteil','k:mod:inst',c.inst,'num',{unit:'€'})+F('Wohnfläche','k:mod:qm',c.qm,'num',{unit:'m²'})+F('Aktuelle Kaltmiete','k:mod:miete',c.miete,'num',{unit:'€'})+F('Schon umgelegt in 6 Jahren','k:mod:bisher',c.bisher,'num',{unit:'€/m²'})+F('Erklärung geht zu am','k:mod:zugang',c.zugang,'txt',{type:'date'});
+  const tabs=[['index','Indexmiete'],['vgl','Vergleichsmiete'],['mod','Modernisierung']];
+  return bar('Rechner','Mieterhöhung')+`<main><div class="seg" role="group" aria-label="Rechner">${tabs.map(([id,l])=>`<button data-act="ctab" data-v="${id}" aria-pressed="${calcTab===id}">${l}</button>`).join('')}</div>
+   ${sel}<div class="card"><div class="fields">${f}</div></div>
+   <h2>Ergebnis</h2><div class="card" id="calcRes">${calcRes()}</div>
+   <p class="note">Orientierungsrechnung, keine Rechtsberatung. Formvorschriften, Fristen und regionale Regeln (zum Beispiel die Kappungsgrenze von 15 statt 20 Prozent in Gebieten mit angespanntem Wohnungsmarkt) musst du im Einzelfall prüfen.</p></main>`+tabbar('calc');
+}
+
+function viewSet(){
+  return bar('Einstellungen','Vermietung','#/')+`<main>
+   <h2>Rechner</h2><div class="card"><div class="fields" style="grid-template-columns:1fr">${F('Kappungsgrenze für Mieterhöhungen','s:kappung',db.settings.kappung,'num',{unit:'%',d:0})}</div></div>
+   <p class="note">20 % in drei Jahren ist die Regel. 15 % gilt in Gemeinden, für die das Land einen angespannten Wohnungsmarkt festgelegt hat.</p>
+   <h2>Sicherung</h2><div class="card"><div class="fields" style="grid-template-columns:1fr"><textarea class="code" id="backup" aria-label="Sicherung als Text" style="min-height:110px"></textarea>
+    <div class="row-actions" style="margin:0"><button class="btn" data-act="bcopy">Kopieren</button><button class="btn" data-act="bload">Eingefügten Text laden</button></div><div class="note" id="bmsg" aria-live="polite" style="margin:0"></div></div></div>
+   <p class="note">Die Sicherung enthält alle Eingaben. Sichere regelmäßig an einem Ort außerhalb des Geräts. Safari kann Website-Daten löschen, wenn du die Seite lange nicht öffnest. Eine App auf dem Home-Bildschirm ist davon nicht betroffen.</p>
+   <h2>Zurücksetzen</h2><div class="row-actions"><button class="btn danger" data-act="wipe">${pend==='wipe'?'Wirklich alles löschen?':'Alle Daten löschen'}</button></div></main>`+tabbar('set');
+}
+
+/* ---------- Rendern ---------- */
+const app=$('#app');
+function render(keep){
+  const r=route(), y=keep?window.scrollY:0;
+  let h;
+  switch(r.v){ case 'pay':h=viewPay();break; case 'ten':h=viewTen();break; case 'tdet':h=viewTdet(r);break; case 'abr':h=viewAbr();break; case 'calc':h=viewCalc();break; case 'set':h=viewSet();break; default:h=viewHome(); }
+  app.innerHTML=h;
+  if(r.v==='set'){ const b=$('#backup'); if(b) b.value=JSON.stringify(db); }
+  window.scrollTo(0,y);
+}
+
+/* ---------- Ereignisse ---------- */
+document.addEventListener('click',e=>{
+  const nv=e.target.closest('a[data-nav]');
+  if(nv){ e.preventDefault(); nav(nv.getAttribute('href')); return; }
+  const b=e.target.closest('[data-act]'); if(!b) return;
+  const act=b.dataset.act, id=b.dataset.id;
+  if(act==='newten'){ const o=newObj({name:'Wohnung '+(db.objs.length+1)}); const t=newTen(o.id,{start:today()}); save(); nav('#/t/'+t.id); return; }
+  if(act==='sample'){
+    const y=+today().slice(0,4);
+    const o=newObj({name:'Beispiel: Wohnung 1',adresse:'Musterstraße 1 (Beispieldaten)',qm:62});
+    const t1=newTen(o.id,{mieter:'Beispiel Mieter',start:(y-2)+'-03-01',kalt0:700,nk:150,stell:35,art:'index',idxBasis:118.4,idxMonat:(y-2)+'-03',kaution:{betrag:2100,eingang:(y-2)+'-03-01',anlage:'Mietkautionskonto',rueck:''},
+      changes:[{ab:(y-1)+'-04',kalt:735,nk:null,grund:'index',note:''}]});
+    const o2=newObj({name:'Beispiel: Wohnung 2',adresse:'Musterstraße 1 (Beispieldaten)',qm:48});
+    const t2=newTen(o2.id,{mieter:'Beispiel Staffel',start:(y-1)+'-07-01',kalt0:600,nk:120,art:'staffel',kaution:{betrag:1800,eingang:(y-1)+'-07-01',anlage:'',rueck:''},
+      changes:[{ab:y+'-07',kalt:630,nk:null,grund:'staffel',note:''},{ab:(y+1)+'-07',kalt:660,nk:null,grund:'staffel',note:''}]});
+    [t1,t2].forEach(t=>{ const to=addM(ymOf(today()),-1); monthsList(ymOf(t.start),to).forEach(m=>{ const so=soll(t,m); if(so) db.pays.push({id:uid(),tid:t.id,datum:m+'-02',monat:m,betrag:so.total,note:'Beispiel'}); }); });
+    const ra=abrRec(t1.id,y-1); [210,380,95,160,120,140].forEach((v,i)=>{ if(ra.pos[i]) ra.pos[i].b=v; });
+    save(); render(); return; }
+  if(act==='pm'){ payMonth=addM(payMonth,+b.dataset.v); payForm=null; render(); return; }
+  if(act==='payform'){ payForm=id||null; render(true); return; }
+  if(act==='paysave'){
+    const t=getTen(id), bt=parseDE($('#pf-b').value), d=$('#pf-d').value||today();
+    if(!t||!(bt>0)){ toast('Bitte einen Betrag eintragen.'); return; }
+    db.pays.push({id:uid(),tid:id,datum:d,monat:payMonth,betrag:bt,note:$('#pf-n').value.trim()}); payForm=null; save(); render(true); toast('Zahlung gespeichert.'); return; }
+  if(act==='payfull'){ const t=getTen(id), so=soll(t,payMonth); db.pays.push({id:uid(),tid:id,datum:today(),monat:payMonth,betrag:r2(so.total-ist(t,payMonth)),note:'Volle Miete'}); save(); render(true); return; }
+  if(act==='paydel'){ if(!twice('pd'+id)) return; db.pays=db.pays.filter(p=>p.id!==id); save(); render(true); return; }
+  if(act==='addchg'){ const t=getTen(id); const st=stateAt(t,ymOf(today())); t.changes.push({ab:addM(ymOf(today()),1),kalt:st.kalt,nk:null,grund:'manuell',note:''}); save(); render(true); return; }
+  if(act==='delchg'){ if(!twice('dc'+id+b.dataset.i)) return; getTen(id).changes.splice(+b.dataset.i,1); save(); render(true); return; }
+  if(act==='genstaffel'){
+    const t=getTen(id), g=calc.staffel||{};
+    if(!(g.ab&&g.betrag>0&&g.anzahl>0)){ toast('Bitte Startmonat, Erhöhung und Anzahl eintragen.'); return; }
+    const ab=Math.max(12,Math.round(g.abstand||12)); if(g.abstand&&g.abstand<12) toast('Der Abstand wurde auf 12 Monate gesetzt.');
+    t.changes=t.changes.filter(c=>c.grund!=='staffel');
+    let kalt=stateAt(t,addM(g.ab,-1)).kalt;
+    for(let i=0;i<g.anzahl;i++){ kalt=r2(kalt+g.betrag); t.changes.push({ab:addM(g.ab,i*ab),kalt,nk:null,grund:'staffel',note:''}); }
+    save(); render(true); toast(g.anzahl+' Stufen erzeugt.'); return; }
+  if(act==='reletting'){ const t=getTen(id); const n=newTen(t.objId,{start:today(),nk:t.nk,stell:t.stell}); if(!t.ende){ t.ende=today(); } save(); nav('#/t/'+n.id); return; }
+  if(act==='delten'){ if(!twice('dt'+id)) return; const t=getTen(id); db.tens=db.tens.filter(x=>x.id!==id); db.pays=db.pays.filter(p=>p.tid!==id); Object.keys(db.abr).filter(k=>k.indexOf(id+'-')===0).forEach(k=>delete db.abr[k]);
+    if(!db.tens.some(x=>x.objId===t.objId)) db.objs=db.objs.filter(o=>o.id!==t.objId); save(); nav('#/vertraege'); return; }
+  if(act==='ay'){ abrY+=+b.dataset.v; render(true); return; }
+  if(act==='addpos'){ abrRec(abrT,abrY).pos.push({n:'',b:0,u:true}); save(); render(true); return; }
+  if(act==='delpos'){ abrRec(abrT,abrY).pos.splice(+b.dataset.i,1); save(); render(true); return; }
+  if(act==='abrcopy'){ const ta=$('#abrTxt'); const fb=()=>{ ta.focus(); ta.select(); toast('Text markiert. Kopiere ihn mit dem Menü.'); };
+    try{ navigator.clipboard.writeText(ta.value).then(()=>toast('Text kopiert.'),fb); }catch(err){ fb(); } return; }
+  if(act==='ctab'){ calcTab=b.dataset.v; render(true); return; }
+  if(act==='calcsave'){
+    const c=calc[calcTab], t=getTen(c.tid); if(!t) return;
+    if(calcTab==='index'){ const r=calcIndex(c); t.changes.push({ab:r.w,kalt:r.neu,nk:null,grund:'index',note:'Index '+nf(1).format(c.basis)+' auf '+nf(1).format(c.neu)}); t.idxBasis=c.neu; }
+    else if(calcTab==='vgl'){ const r=calcVgl(c); t.changes.push({ab:r.w,kalt:r.neu,nk:null,grund:'vergleich',note:'Vergleichsmiete '+nf(2).format(c.vm)+' €/m²'}); }
+    else { const r=calcMod(c); t.changes.push({ab:r.w,kalt:r.neu,nk:null,grund:'modern',note:'Modernisierung'}); }
+    save(); toast('In den Mietverlauf eingetragen.'); render(true); return; }
+  if(act==='bcopy'){ const t=$('#backup'); t.value=JSON.stringify(db);
+    const fb=()=>{ t.focus(); t.select(); $('#bmsg').textContent='Text markiert. Kopiere ihn mit dem Menü deines Geräts.'; };
+    try{ navigator.clipboard.writeText(t.value).then(()=>{ $('#bmsg').textContent='Kopiert. Speichere den Text an einem sicheren Ort.'; },fb); }catch(err){ fb(); } return; }
+  if(act==='bload'){
+    try{ const d=JSON.parse($('#backup').value); if(!d||!Array.isArray(d.objs)||!Array.isArray(d.tens)) throw 0;
+      db=Object.assign({v:1,objs:[],tens:[],pays:[],abr:{},settings:{kappung:20}},d); db.settings=Object.assign({kappung:20},d.settings||{}); save(); $('#bmsg').textContent='Daten geladen.'; }
+    catch(err){ $('#bmsg').textContent='Das ist keine gültige Sicherung. Füge den kompletten kopierten Text ein.'; } return; }
+  if(act==='wipe'){ if(!twice('wipe')) return; db={v:1,objs:[],tens:[],pays:[],abr:{},settings:{kappung:20}}; save(); nav('#/'); return; }
+});
+
+document.addEventListener('input',e=>{
+  const t=e.target; if(!t.dataset||!t.dataset.ref) return;
+  const rf=getRef(t.dataset.ref); if(!rf.obj) return;
+  let v;
+  if(t.dataset.ty==='num'){ v=parseDE(t.value); if(v===null&&!t.dataset.null) v=(t.dataset.ref.indexOf('k:')===0)?undefined:0; }
+  else if(t.dataset.ty==='bool') v=t.checked; else v=t.value;
+  setPath(rf.obj,rf.key,v);
+  const r=route();
+  if(r.v==='tdet'){ const te=getTen(r.id), el=$('#tsum'); if(el) el.innerHTML=tsumHtml(te,getObj(te.objId)||{}); }
+  if(r.v==='abr'){ const te=getTen(abrT), rec=abrRec(abrT,abrY), c=abrCalc(te,abrY,rec); const el=$('#abrRes'); if(el){ const keep=$('#abrTxt'); el.innerHTML=abrRes(te,rec,c); } }
+  if(r.v==='calc'){ const el=$('#calcRes'); if(el) el.innerHTML=calcRes(); }
+  if(t.dataset.ref.indexOf('k:')!==0) save();
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='abrSel'){ abrT=t.value; render(); return; }
+  if(t.id==='calcSel'){ const c=calc[calcTab]; c.tid=t.value||undefined; if(c.tid) prefill(calcTab); render(true); return; }
+  if(!t.dataset||!t.dataset.ref) return;
+  if(t.dataset.ty==='num'&&t.value!==''){ const v=parseDE(t.value); t.value=v===null?'':fmtIn(v,+t.dataset.d); }
+  if(t.dataset.rerender){ save(); render(true); }
+  if(/^c:/.test(t.dataset.ref)&&/:ab$/.test(t.dataset.ref)){ save(); render(true); }
+  if(t.dataset.ref==='ab:'+abrT+'-'+abrY+':versendet'){ save(); }
+});
+
+/* ---------- Start ---------- */
+load();
+if(navigator.storage&&navigator.storage.persist){ try{ navigator.storage.persist(); }catch(e){} }
+render();
+if('serviceWorker' in navigator&&location.protocol==='https:'){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+})();
+</script>
+</body>
+</html>
