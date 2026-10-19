@@ -168,6 +168,8 @@ details.vtab td:first-child,details.vtab th:first-child{text-align:left;font-fam
 .vl{display:flex;flex-wrap:wrap;gap:6px 14px;padding:4px 14px 12px;font-size:12px;color:var(--muted)}
 .vl span{display:inline-flex;align-items:center;gap:5px}
 .vl i{width:16px;height:16px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:10px;font-weight:700}
+#printArea{display:none}
+@media print{body>*:not(#printArea){display:none!important}#printArea{display:block!important;white-space:pre-wrap;font:11pt/1.45 Georgia,'Times New Roman',serif;color:#000;background:#fff;padding:0}@page{margin:22mm 20mm}}
 </style>
 </head>
 <body>
@@ -334,6 +336,7 @@ function route(){
     case 't': return getTen(p[1])?{v:'tdet',id:p[1]}:{v:'ten'};
     case 'abrechnung': return {v:'abr'};
     case 'rechner': return {v:'calc'};
+    case 'brief': return {v:'brief'};
     case 'einstellungen': return {v:'set'};
     default: return {v:'home'};
   }
@@ -369,6 +372,7 @@ function getRef(ref){
   if(sc==='s') return {obj:db.settings,key:p[1]};
   if(sc==='ab'){ const rec=db.abr[p[1]]; if(!rec) return {}; if(p[2]==='pos') return {obj:rec.pos[+p[3]],key:p[4]}; return {obj:rec,key:p[2]}; }
   if(sc==='k') return {obj:calc[p[1]],key:p[2]};
+  if(sc==='b') return {obj:brief,key:p[1]};
   return {};
 }
 function setPath(obj,key,val){
@@ -427,6 +431,32 @@ function deadlineChart(dl){
   return `<div class="card"><div class="viz"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Fristen in den nächsten 12 Monaten: ${tot} Termine${late?', dazu '+late+' überfällige':''}">${g}</svg></div>
   <div class="vl">${groups.map((n,k)=>`<span><i style="background:${gc[k]}"></i>${n}</span>`).join('')}${late?`<span class="t-bad" style="color:var(--bad)">! ${late} überfällig, siehe Liste</span>`:''}</div></div>`;
 }
+
+/* ---------- Kalender-Export ---------- */
+function icsText(items,prodid){
+  const esc=t=>String(t||'').replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\;');
+  const fold=l=>{ let o=''; while(l.length>73){ o+=l.slice(0,73)+'\r\n '; l=l.slice(73); } return o+l; };
+  const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d+/,'');
+  const L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//'+prodid+'//DE','CALSCALE:GREGORIAN','METHOD:PUBLISH'];
+  items.forEach(it=>{
+    const d=it.date.replace(/-/g,''), next=new Date(it.date+'T12:00:00'); next.setDate(next.getDate()+1);
+    const dn=next.getFullYear()+p2(next.getMonth()+1)+p2(next.getDate());
+    L.push('BEGIN:VEVENT','UID:'+it.uid+'@immobilien-apps','DTSTAMP:'+stamp,'DTSTART;VALUE=DATE:'+d,'DTEND;VALUE=DATE:'+dn,fold('SUMMARY:'+esc(it.t)),fold('DESCRIPTION:'+esc(it.sub)),
+      'BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+esc(it.t),'TRIGGER:-P'+(it.warn||7)+'D','END:VALARM','END:VEVENT');
+  });
+  L.push('END:VCALENDAR'); return L.join('\r\n')+'\r\n';
+}
+async function saveFile(name,mime,text){
+  const blob=new Blob([text],{type:mime});
+  try{ const f=new File([blob],name,{type:mime}); if(navigator.canShare&&navigator.canShare({files:[f]})){ await navigator.share({files:[f],title:name}); return true; } }catch(e){ if(e&&e.name==='AbortError') return true; }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1500); return true;
+}
+function exportIcs(){
+  const td=today(), dl=deadlines().filter(d=>d.kind!=='pay'&&d.date>=td);
+  if(!dl.length){ toast('Keine anstehenden Fristen zum Exportieren.'); return; }
+  const items=dl.map((d,i)=>({uid:'ver-'+d.kind+'-'+d.tid+'-'+d.date+'-'+i,date:d.date,t:d.t,sub:d.sub,warn:d.kind==='abr'?30:(d.kind==='ende'||d.kind==='kaution'?14:7)}));
+  saveFile('vermietung-fristen.ics','text/calendar',icsText(items,'Immobilien Vermietung')).then(()=>toast(items.length+' Termine bereit. Öffne die Datei, um sie im Kalender zu speichern.'));
+}
 function viewHome(){
   const td=today(), ym=ymOf(td);
   const act=db.tens.filter(t=>isActive(t,td));
@@ -447,6 +477,7 @@ function viewHome(){
     kpi('Offene Beträge',eur(rueck),rueck>0?'Zahlungsrückstand':'Alles bezahlt',rueck>0?'t-bad':'t-good')+kpi('Ø Kaltmiete pro m²',qmSum>0?eur2(kaltQm/qmSum):'–',leer?leer+' Wohnung'+(leer>1?'en':'')+' ohne Mieter':'Alle Wohnungen vermietet')}</div>`;
   h+=`<h2>Fristen und Termine</h2>`+deadlineChart(dl);
   h+=shown.length?`<div class="card list">${shown.map(d=>`<a class="li ${d.state}" href="${d.kind==='abr'?'#/abrechnung':(d.kind==='pay'?'#/miete':'#/t/'+d.tid)}" data-nav data-dl="${d.kind}" data-tid="${d.tid}" data-dy="${d.date.slice(0,4)}"><span class="a">${esc(d.t)}</span><span class="r when ${d.state==='over'?'t-bad':(d.state==='soon'?'t-mid':'')}">${fmtD(d.date)}</span><span class="b">${esc(d.sub)}</span><span></span></a>`).join('')}</div>`:`<div class="empty">Keine anstehenden Fristen.</div>`;
+  if(dl.some(d=>d.kind!=='pay'&&d.date>=td)) h+=`<div class="row-actions"><button class="btn" data-act="ics">Fristen in den Kalender (.ics)</button></div>`;
   h+=`<h2>Wohnungen</h2><div class="cards">${db.objs.map(o=>{
     const t=db.tens.filter(x=>x.objId===o.id).sort((a,b)=>(b.start||'')<(a.start||'')?-1:1)[0], a=t&&isActive(t,td);
     if(!t) return `<div class="tcard"><div class="t">${esc(o.name||'Wohnung')}</div><div class="a">${esc(o.adresse)}</div><div class="p"><span class="pill p-none">Kein Mietverhältnis</span></div></div>`;
@@ -641,7 +672,7 @@ function calcRes(){
       <div class="chk"><span class="ok">i</span><span>Nur Modernisierung ist umlagefähig, keine Instandhaltung oder Reparatur. Die Erklärung muss die Maßnahme und die Berechnung nachvollziehbar darstellen.</span></div>`;
     ok=r.w&&t&&r.add>0;
   }
-  h+=`<div style="padding:10px 14px;border-top:1px solid var(--line)"><button class="btn primary" data-act="calcsave" ${ok?'':'disabled'}>In den Mietverlauf eintragen</button>${t?'':'<div class="note" style="margin:6px 0 0">Wähle oben ein Mietverhältnis, um die Erhöhung zu speichern.</div>'}</div>`;
+  h+=`<div style="padding:10px 14px;border-top:1px solid var(--line)"><button class="btn primary" data-act="calcsave" ${ok?'':'disabled'}>In den Mietverlauf eintragen</button> <button class="btn" data-act="briefopen">Schreiben erstellen</button>${t?'':'<div class="note" style="margin:6px 0 0">Wähle oben ein Mietverhältnis, um die Erhöhung zu speichern.</div>'}</div>`;
   return h;
 }
 function viewCalc(){
@@ -656,6 +687,71 @@ function viewCalc(){
    ${sel}<div class="card"><div class="fields">${f}</div></div>
    <h2>Ergebnis</h2><div class="card" id="calcRes">${calcRes()}</div>
    <p class="note">Orientierungsrechnung, keine Rechtsberatung. Formvorschriften, Fristen und regionale Regeln (zum Beispiel die Kappungsgrenze von 15 statt 20 Prozent in Gebieten mit angespanntem Wohnungsmarkt) musst du im Einzelfall prüfen.</p></main>`+tabbar('calc');
+}
+
+
+/* ---------- Mieterhöhungsschreiben ---------- */
+const brief={kind:'vgl',quelle:'Mietspiegel',quelleText:'',massnahme:'',anrede:'Sehr geehrte Damen und Herren,',ort:'',datum:'',text:'',dirty:false};
+const lastDay=ym=>ym+'-'+String(dim(ym)).padStart(2,'0');
+function briefText(){
+  const kind=brief.kind, c=calc[kind]||{}, t=getTen(c.tid), o=t?(getObj(t.objId)||{}):{}, S=db.settings, bx=brief;
+  const L=[]; const add=(...a)=>a.forEach(x=>L.push(x));
+  const heute=bx.datum||today();
+  add(S.vName||'[Name Vermieter]',S.vAdr||'[Anschrift Vermieter]','','',(t&&t.mieter)||'[Name Mieter]',o.adresse||'[Anschrift Mieter]','');
+  add((bx.ort||'[Ort]')+', den '+fmtD(heute),'');
+  const wo=(o.name||'Wohnung')+(o.adresse?', '+o.adresse:'');
+  const zug=c.zugang?fmtD(c.zugang):'[Zugangsdatum]';
+  if(kind==='vgl'){
+    const r=calcVgl(c); if(!r) return 'Bitte zuerst im Rechner Miete, Wohnfläche und Vergleichsmiete eintragen.';
+    if(r.diff<0.005) return 'Keine Erhöhung möglich: Die Miete liegt bereits auf oder über der zulässigen Höhe ('+eur2(r.neu)+'). Prüfe im Rechner Vergleichsmiete, Wohnfläche und Kappungsgrenze.';
+    const w=r.w?'01.'+r.w.slice(5,7)+'.'+r.w.slice(0,4):'[Datum]';
+    const zust=c.zugang?fmtD(lastDay(addM(ymOf(c.zugang),2))):'[Datum]';
+    add('Mieterhöhungsverlangen nach § 558 BGB','Wohnung: '+wo,'',bx.anrede,'',
+      'die monatliche Nettokaltmiete für die oben genannte Wohnung beträgt derzeit '+eur2(c.miete)+' ('+eur2(c.miete/c.qm)+' je m² bei '+nf(2).format(c.qm)+' m² Wohnfläche).'+(r.last?' Sie ist seit '+fmtYm(r.last)+' unverändert.':''),'',
+      'Ich bitte Sie, einer Erhöhung der Nettokaltmiete um '+eur2(r.diff)+' auf '+eur2(r.neu)+' monatlich ab dem '+w+' zuzustimmen.','',
+      'Begründung','Die ortsübliche Vergleichsmiete für Wohnraum vergleichbarer Art, Größe, Ausstattung, Beschaffenheit und Lage beträgt laut '+(bx.quelleText||bx.quelle)+' '+nf(2).format(c.vm)+' € je m². Bei '+nf(2).format(c.qm)+' m² Wohnfläche ergibt sich eine Vergleichsmiete von '+eur2(r.ziel)+' monatlich.','');
+    if(r.begrenzt) add('Die verlangte Miete berücksichtigt die Kappungsgrenze: Innerhalb von drei Jahren darf die Miete um höchstens '+nf(0).format(r.k)+' % steigen. Die Miete vor drei Jahren betrug '+eur2(c.miete3||c.miete)+', daraus ergibt sich eine Obergrenze von '+eur2(r.kapp)+'.','');
+    else add('Die Kappungsgrenze von '+nf(0).format(r.k)+' % innerhalb von drei Jahren wird eingehalten (Miete vor drei Jahren: '+eur2(c.miete3||c.miete)+', Obergrenze '+eur2(r.kapp)+').','');
+    add('Die Vorauszahlung für die Nebenkosten bleibt unverändert.','',
+      'Bitte stimmen Sie der Erhöhung bis zum '+zust+' zu. Die Zustimmung ist in Textform möglich, zum Beispiel per E-Mail. Stimmen Sie zu, gilt die neue Miete ab dem '+w+'.','',
+      'Mit freundlichen Grüßen','','',S.vName||'[Name Vermieter]');
+    if(bx.quelle==='Mietspiegel') add('','Anlage: Auszug aus dem Mietspiegel');
+  } else if(kind==='index'){
+    const r=calcIndex(c); if(!r) return 'Bitte zuerst im Rechner Miete, Basisindex und aktuellen Index eintragen.';
+    if(r.diff<0.005) return 'Keine Erhöhung möglich: Der Index ist nicht gestiegen. Prüfe Basisindex und aktuellen Index im Rechner.';
+    const w=r.w?'01.'+r.w.slice(5,7)+'.'+r.w.slice(0,4):'[Datum]';
+    add('Mietanpassung nach § 557b BGB (Indexmiete)','Wohnung: '+wo,'',bx.anrede,'',
+      'im Mietvertrag ist vereinbart, dass sich die Miete nach dem Verbraucherpreisindex für Deutschland ändert. Der Index hat sich seit der letzten Anpassung von '+nf(1).format(c.basis)+' auf '+nf(1).format(c.neu)+' Punkte verändert, das sind '+nf(2).format(r.proz)+' %.','',
+      'Die bisherige Nettokaltmiete beträgt '+eur2(c.miete)+'. Die neue Nettokaltmiete beträgt '+eur2(r.neu)+', die Erhöhung '+eur2(r.diff)+' monatlich.','',
+      'Die neue Miete ist ab dem '+w+' zu zahlen. Die Vorauszahlung für die Nebenkosten bleibt unverändert.','',
+      'Mit freundlichen Grüßen','','',S.vName||'[Name Vermieter]');
+  } else {
+    const r=calcMod(c); if(!r) return 'Bitte zuerst im Rechner Kosten und Wohnfläche eintragen.';
+    if(!(r.add>0.005)) return 'Keine Erhöhung möglich: Aus den Angaben ergibt sich keine Umlage. Prüfe Kosten, Instandhaltungsanteil und bereits umgelegte Beträge im Rechner.';
+    const w=r.w?'01.'+r.w.slice(5,7)+'.'+r.w.slice(0,4):'[Datum]';
+    add('Mieterhöhung nach Modernisierung, § 559 BGB','Wohnung: '+wo,'',bx.anrede,'',
+      'ich habe folgende Modernisierungsmaßnahme durchgeführt: '+(bx.massnahme||'[Beschreibung der Maßnahme]')+'.','',
+      'Berechnung','Kosten der Maßnahme für Ihre Wohnung: '+eur2(c.kosten),'Abzüglich Instandhaltungsanteil: '+eur2(c.inst||0),'Umlagefähige Kosten: '+eur2(r.basis),'Davon 8 % pro Jahr: '+eur2(r.jahr)+', das sind '+eur2(r.mon)+' pro Monat.','');
+    if(r.begrenzt) add('Die Erhöhung ist auf '+eur2(r.cap)+' je m² begrenzt (Kappungsgrenze '+r.lim+' € je m² innerhalb von sechs Jahren). Daraus ergibt sich eine Erhöhung von '+eur2(r.add)+' monatlich.','');
+    add('Die Nettokaltmiete erhöht sich damit von '+eur2(c.miete)+' um '+eur2(r.add)+' auf '+eur2(r.neu)+' monatlich. Die neue Miete ist ab dem '+w+' zu zahlen.','',
+      'Mit freundlichen Grüßen','','',S.vName||'[Name Vermieter]','','Anlage: Aufstellung der Kosten und Erläuterung der Berechnung');
+  }
+  return L.join('\n');
+}
+function briefRebuild(){ if(!brief.dirty){ brief.text=briefText(); const ta=$('#briefTxt'); if(ta) ta.value=brief.text; } }
+function viewBrief(){
+  const c=calc[brief.kind]||{}, t=getTen(c.tid), S=db.settings;
+  if(!brief.text) brief.text=briefText();
+  const kn={vgl:'Vergleichsmiete (§ 558)',index:'Indexmiete (§ 557b)',mod:'Modernisierung (§ 559)'}[brief.kind];
+  return bar('Schreiben','Mieterhöhung','#/rechner')+`<main>
+  <p class="note" style="margin-top:0">Entwurf zur ${kn}${t?' für '+esc(t.mieter||'den Mieter'):''}. Prüfe Text, Fristen und Formvorgaben, bevor du ihn versendest. Das ist keine Rechtsberatung.</p>
+  <h2>Angaben</h2><div class="card"><div class="fields">${F('Dein Name','s:vName',S.vName,'txt',{full:true})}${F('Deine Anschrift','s:vAdr',S.vAdr,'txt',{full:true,ph:'Straße, PLZ Ort'})}${F('Ort','b:ort',brief.ort,'txt')}${F('Datum','b:datum',brief.datum||today(),'txt',{type:'date'})}${F('Anrede','b:anrede',brief.anrede,'txt',{full:true})}
+  ${brief.kind==='vgl'?`<label class="fld full">Quelle der Vergleichsmiete<select data-ref="b:quelle" data-ty="txt" data-rerender="1">${['Mietspiegel','Sachverständigengutachten','Vergleichswohnungen'].map(q=>`<option ${brief.quelle===q?'selected':''}>${q}</option>`).join('')}</select></label>${F('Genaue Angabe zur Quelle','b:quelleText',brief.quelleText,'txt',{full:true,ph:'z. B. dem Mietspiegel der Stadt …, Stand 2024'})}`:''}
+  ${brief.kind==='mod'?F('Maßnahme','b:massnahme',brief.massnahme,'txt',{full:true,ph:'z. B. Einbau neuer Fenster mit Dreifachverglasung'}):''}</div></div>
+  <h2>Schreiben</h2><div class="card pad"><textarea id="briefTxt" class="code" style="min-height:420px;font-family:var(--font-body);font-size:15px;line-height:1.5" aria-label="Text des Schreibens">${esc(brief.text)}</textarea>
+  <div class="row-actions"><button class="btn primary" data-act="briefprint">Als PDF sichern oder drucken</button><button class="btn" data-act="briefcopy">Text kopieren</button><button class="btn" data-act="briefreset">Neu aufbauen</button></div>
+  <p class="note" style="margin:8px 0 0">Auf dem iPhone: Teilen-Symbol, dann „In Dateien sichern“ für ein PDF. Änderungen im Textfeld bleiben, bis du „Neu aufbauen“ tippst.</p></div>
+  <p class="note">Ein Mieterhöhungsverlangen braucht Textform und eine Begründung. Der Zugang muss nachweisbar sein. Beachte Sperrfristen, die Kappungsgrenze (in vielen Städten in Baden-Württemberg 15 statt 20 %) und, falls vorhanden, die Mietpreisbremse.</p></main>`+tabbar('calc');
 }
 
 function viewSet(){
@@ -673,7 +769,7 @@ const app=$('#app');
 function render(keep){
   const r=route(), y=keep?window.scrollY:0;
   let h;
-  switch(r.v){ case 'pay':h=viewPay();break; case 'ten':h=viewTen();break; case 'tdet':h=viewTdet(r);break; case 'abr':h=viewAbr();break; case 'calc':h=viewCalc();break; case 'set':h=viewSet();break; default:h=viewHome(); }
+  switch(r.v){ case 'pay':h=viewPay();break; case 'ten':h=viewTen();break; case 'tdet':h=viewTdet(r);break; case 'abr':h=viewAbr();break; case 'calc':h=viewCalc();break; case 'brief':h=viewBrief();break; case 'set':h=viewSet();break; default:h=viewHome(); }
   app.innerHTML=h;
   if(r.v==='set'){ const b=$('#backup'); if(b) b.value=JSON.stringify(db); }
   window.scrollTo(0,y);
@@ -724,6 +820,11 @@ document.addEventListener('click',e=>{
   if(act==='delpos'){ abrRec(abrT,abrY).pos.splice(+b.dataset.i,1); save(); render(true); return; }
   if(act==='abrcopy'){ const ta=$('#abrTxt'); const fb=()=>{ ta.focus(); ta.select(); toast('Text markiert. Kopiere ihn mit dem Menü.'); };
     try{ navigator.clipboard.writeText(ta.value).then(()=>toast('Text kopiert.'),fb); }catch(err){ fb(); } return; }
+  if(act==='ics'){ exportIcs(); return; }
+  if(act==='briefopen'){ brief.kind=calcTab; brief.dirty=false; brief.text=''; brief.datum=today(); const c=calc[calcTab]; if(!brief.quelleText&&calcTab==='vgl') brief.quelleText=''; nav('#/brief'); return; }
+  if(act==='briefreset'){ brief.dirty=false; brief.text=briefText(); const ta=$('#briefTxt'); if(ta) ta.value=brief.text; toast('Text neu aufgebaut.'); return; }
+  if(act==='briefcopy'){ const ta=$('#briefTxt'); const fb=()=>{ ta.focus(); ta.select(); toast('Text markiert. Kopiere ihn mit dem Menü.'); }; try{ navigator.clipboard.writeText(ta.value).then(()=>toast('Text kopiert.'),fb); }catch(err){ fb(); } return; }
+  if(act==='briefprint'){ let pa=$('#printArea'); if(!pa){ pa=document.createElement('div'); pa.id='printArea'; document.body.appendChild(pa); } pa.textContent=$('#briefTxt').value; window.print(); return; }
   if(act==='ctab'){ calcTab=b.dataset.v; render(true); return; }
   if(act==='calcsave'){
     const c=calc[calcTab], t=getTen(c.tid); if(!t) return;
@@ -752,8 +853,10 @@ document.addEventListener('input',e=>{
   if(r.v==='tdet'){ const te=getTen(r.id), el=$('#tsum'); if(el) el.innerHTML=tsumHtml(te,getObj(te.objId)||{}); }
   if(r.v==='abr'){ const te=getTen(abrT), rec=abrRec(abrT,abrY), c=abrCalc(te,abrY,rec); const el=$('#abrRes'); if(el){ const keep=$('#abrTxt'); el.innerHTML=abrRes(te,rec,c); } }
   if(r.v==='calc'){ const el=$('#calcRes'); if(el) el.innerHTML=calcRes(); }
-  if(t.dataset.ref.indexOf('k:')!==0) save();
+  if(t.dataset.ref.indexOf('b:')===0){ brief.text=''; if(!brief.dirty){ briefRebuild(); } }
+  if(t.dataset.ref.indexOf('k:')!==0&&t.dataset.ref.indexOf('b:')!==0) save();
 });
+document.addEventListener('input',e=>{ if(e.target.id==='briefTxt'){ brief.text=e.target.value; brief.dirty=true; } });
 document.addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='abrSel'){ abrT=t.value; render(); return; }

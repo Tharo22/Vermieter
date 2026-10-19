@@ -1,5 +1,5 @@
 /* Offline-Zwischenspeicher: erst Netz (max. 2,5 s), sonst gespeicherte Kopie. */
-const V = 'vermietung-v6';
+const V = 'vermietung-v8';
 const CORE = ['./', './index.html', './apple-touch-icon.png', './fonts/plexmono-400.woff', './fonts/plexmono-600.woff', './fonts/bricolage-700.woff'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(V).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));
