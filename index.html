@@ -170,6 +170,37 @@ details.vtab td:first-child,details.vtab th:first-child{text-align:left;font-fam
 .vl i{width:16px;height:16px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:10px;font-weight:700}
 #printArea{display:none}
 @media print{body>*:not(#printArea){display:none!important}#printArea{display:block!important;white-space:pre-wrap;font:11pt/1.45 Georgia,'Times New Roman',serif;color:#000;background:#fff;padding:0}@page{margin:22mm 20mm}}
+
+/*FOLD*/
+.bar{flex-wrap:wrap}
+.bar .strip{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:12.5px;color:var(--muted);margin-top:-2px}
+.bar .strip b{font-family:var(--font-mono);font-weight:600;color:var(--ink)}
+.bar .strip .pill{font-size:11.5px;padding:2px 9px}
+details.fold{margin:12px 0 0}
+details.fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 4px;-webkit-tap-highlight-color:transparent}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary h2{margin:0;flex:1;min-width:0}
+details.fold>summary::after{content:'';width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s;margin:-4px 4px 0 0}
+details.fold[open]>summary::after{transform:rotate(-135deg);margin-top:4px}
+.fold-tools{display:flex;gap:4px;justify-content:flex-end;margin:6px 0 -6px}
+.fold-tools button{border:0;background:none;color:var(--accent);font-size:12.5px;padding:6px;text-decoration:underline;min-height:32px}
+.crows{display:flex;flex-direction:column;gap:8px}
+.crow{display:block;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;text-decoration:none;color:var(--ink)}
+.crow>summary,a.crow{list-style:none;cursor:pointer}
+.crow>summary::-webkit-details-marker{display:none}
+.crow .hd{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;align-items:center;padding:11px 14px;min-height:58px}
+.crow .n{font-weight:600;font-size:15px;min-width:0;overflow-wrap:anywhere;font-family:'Bricolage Grotesque',var(--font-body)}
+.crow .sb{font-size:12.5px;color:var(--muted);min-width:0;overflow-wrap:anywhere}
+.crow .r{text-align:right;font-family:var(--font-mono);font-weight:600;font-size:15px}
+.crow .rs{justify-self:end}
+.crow .rs .pill{font-size:11.5px;padding:2px 9px}
+.crow .bd{border-top:1px solid var(--line);padding:4px 0 10px}
+.crow .bd .kv{padding:8px 14px}
+.crow .bd .row-actions{padding:0 14px;margin:8px 0 0}
+details.crow>summary .hd{padding-right:34px;position:relative}
+details.crow>summary .hd::after{content:'';position:absolute;right:15px;top:50%;width:7px;height:7px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:translateY(-70%) rotate(45deg);transition:transform .15s}
+details.crow[open]>summary .hd::after{transform:translateY(-30%) rotate(-135deg)}
+/*ENDFOLD*/
 </style>
 </head>
 <body>
@@ -222,7 +253,8 @@ function publishSummary(){ try{
   const mieten=db.tens.filter(t=>isActive(t)).map(t=>{ const o=getObj(t.objId)||{}, st=stateAt(t,ym); return {oid:o.id,name:o.name||'',qm:o.qm||0,mieter:t.mieter||'',art:t.art||'fest',kalt:st.kalt,nk:st.nk,stell:t.stell||0}; });
   const arrears=r2(db.tens.reduce((a,t)=>a+Math.max(0,saldo(t)),0));
   const dl=deadlines().filter(d=>d.state!=='later').slice(0,8).map(d=>({date:d.date,t:d.t,sub:d.sub,state:d.state}));
-  localStorage.setItem('vermietung-summary-v1',JSON.stringify({ts:Date.now(),n:db.tens.length,mieten,arrears,dl}));
+  const dlAll=deadlines().filter(d=>d.kind!=='pay'&&d.date>=today()).map(d=>({date:d.date,t:d.t,sub:d.sub,kind:d.kind,tid:d.tid}));
+  localStorage.setItem('vermietung-summary-v1',JSON.stringify({ts:Date.now(),n:db.tens.length,mieten,arrears,dl,dlAll}));
 }catch(e){} }
 window.addEventListener('pagehide',flush);
 document.addEventListener('visibilitychange',()=>{ if(document.hidden) flush(); });
@@ -381,8 +413,8 @@ function setPath(obj,key,val){
 function getPath(obj,key){ return key.split('.').reduce((o,k)=>o&&o[k],obj); }
 
 /* ---------- Ansichten ---------- */
-function bar(title,sub,back,extra){
-  return `<div class="bar">${back?`<a class="back" href="${back}" data-nav>‹ Zurück</a>`:''}<h1>${sub?`<span class="sub">${esc(sub)}</span>`:''}${esc(title)}</h1>${extra||''}</div>`;
+function bar(title,sub,back,extra,strip){
+  return `<div class="bar">${back?`<a class="back" href="${back}" data-nav>‹ Zurück</a>`:''}<h1>${sub?`<span class="sub">${esc(sub)}</span>`:''}${esc(title)}</h1>${extra||''}${strip?`<div class="strip">${strip}</div>`:''}</div>`;
 }
 function tabbar(cur){
   const t=[['home','#/','Übersicht'],['pay','#/miete','Mieteingang'],['ten','#/vertraege','Verträge'],['abr','#/abrechnung','Abrechnung'],['calc','#/rechner','Rechner']];
@@ -457,6 +489,24 @@ function exportIcs(){
   const items=dl.map((d,i)=>({uid:'ver-'+d.kind+'-'+d.tid+'-'+d.date+'-'+i,date:d.date,t:d.t,sub:d.sub,warn:d.kind==='abr'?30:(d.kind==='ende'||d.kind==='kaution'?14:7)}));
   saveFile('vermietung-fristen.ics','text/calendar',icsText(items,'Immobilien Vermietung')).then(()=>toast(items.length+' Termine bereit. Öffne die Datei, um sie im Kalender zu speichern.'));
 }
+/* ---------- Layout-Helfer ---------- */
+const UIKEY='vermietung-ui-v1'; let ui={}; try{ ui=JSON.parse(localStorage.getItem(UIKEY)||'{}')||{}; }catch(e){ ui={}; }
+function saveUi(){ try{ localStorage.setItem(UIKEY,JSON.stringify(ui)); }catch(e){} }
+const FOLD_CLOSED={'tdet:Kaution':1,'tdet:Notizen':1,'set:Sicherung':1,'set:Zurücksetzen':1,'set:Rechner':0,'abr:Versand':1};
+function foldify(view){
+  const m=document.querySelector('#app main'); if(!m) return;
+  const hs=[...m.children].filter(n=>n.tagName==='H2'); if(!hs.length) return;
+  hs.forEach(h=>{ const id=view+':'+h.textContent.trim(); const d=document.createElement('details'); d.className='fold'; d.dataset.fold=id; d.open=id in ui?!!ui[id]:!FOLD_CLOSED[id];
+    const sm=document.createElement('summary'), body=document.createElement('div'); body.className='fb';
+    let n=h.nextSibling; while(n&&n.tagName!=='H2'&&!(n.classList&&n.classList.contains('keep-out'))){ const nx=n.nextSibling; body.appendChild(n); n=nx; }
+    h.replaceWith(d); sm.appendChild(h); d.append(sm,body); });
+  if(hs.length>=5){ const t=document.createElement('div'); t.className='fold-tools'; t.innerHTML='<button type="button" data-act="foldall" data-v="1">Alle aufklappen</button><button type="button" data-act="foldall" data-v="0">Alle zuklappen</button>'; m.insertBefore(t,m.querySelector('details.fold')); }
+}
+document.addEventListener('toggle',e=>{ const d=e.target; if(!d.matches) return; if(d.matches('details.fold')){ ui[d.dataset.fold]=d.open; saveUi(); } else if(d.matches('details.crow')){ ui['c:'+d.dataset.crow]=d.open; saveUi(); } },true);
+const stellOf=t=>+(t&&t.stell)||0;
+function ttStatus(t,a){ const s=saldo(t); return a?(s>0.5?`<span class="pill p-bad">Rückstand ${eur(s)}</span>`:'<span class="pill p-good">Zahlungen in Ordnung</span>'):'<span class="pill p-none">Leer</span>'; }
+function ttRent(st,t){ return eur2(st.kalt)+(stellOf(t)>0?`<span class="sb" style="display:block;font-weight:400;font-family:var(--font-body)">+ Stellplatz ${eur2(stellOf(t))}</span>`:''); }
+
 function viewHome(){
   const td=today(), ym=ymOf(td);
   const act=db.tens.filter(t=>isActive(t,td));
@@ -466,7 +516,9 @@ function viewHome(){
   const leer=db.objs.filter(o=>!act.some(t=>t.objId===o.id)).length;
   const y=+td.slice(0,4); let jahr=0; db.tens.forEach(t=>monthsList(y+'-01',y+'-12').forEach(m=>{ const so=soll(t,m); if(so) jahr+=so.kalt+so.stell; }));
   const dl=deadlines(), shown=dl.filter(d=>d.state!=='later').concat(dl.filter(d=>d.state==='later').slice(0,4)).slice(0,12);
-  let h=bar('Vermietung','Übersicht',null,`<a class="btn small" href="#/einstellungen" data-nav>Einstellungen</a>`)+'<main>';
+  const nd=dl.find(d=>d.kind!=='pay'&&d.date>=td)||dl.find(d=>d.kind!=='pay');
+  const strip=db.tens.length?`<span class="pill ${rueck>0.5?'p-bad':'p-good'}">${rueck>0.5?'Rückstand '+eur(rueck):'Keine Rückstände'}</span>`+(nd?`<span>Nächste Frist: <b>${fmtD(nd.date)}</b> ${esc(nd.t)}</span>`:'')+(leer?`<span>${leer} leer</span>`:''):'';
+  let h=bar('Vermietung','Übersicht',null,`<a class="btn small" href="#/einstellungen" data-nav>Einstellungen</a>`,strip)+'<main>';
   if(!storageOk) h+=`<div class="warn">Speichern im Browser ist nicht möglich. Deine Eingaben gehen beim Schließen verloren.</div>`;
   if(!db.tens.length){
     h+=`<div class="empty"><b>Noch keine Mietverhältnisse</b>Lege eine Wohnung mit Mieter an. Die App rechnet dann Mietverlauf, Fristen, Mieteingang und Nebenkostenabrechnung.
@@ -478,13 +530,11 @@ function viewHome(){
   h+=`<h2>Fristen und Termine</h2>`+deadlineChart(dl);
   h+=shown.length?`<div class="card list">${shown.map(d=>`<a class="li ${d.state}" href="${d.kind==='abr'?'#/abrechnung':(d.kind==='pay'?'#/miete':'#/t/'+d.tid)}" data-nav data-dl="${d.kind}" data-tid="${d.tid}" data-dy="${d.date.slice(0,4)}"><span class="a">${esc(d.t)}</span><span class="r when ${d.state==='over'?'t-bad':(d.state==='soon'?'t-mid':'')}">${fmtD(d.date)}</span><span class="b">${esc(d.sub)}</span><span></span></a>`).join('')}</div>`:`<div class="empty">Keine anstehenden Fristen.</div>`;
   if(dl.some(d=>d.kind!=='pay'&&d.date>=td)) h+=`<div class="row-actions"><button class="btn" data-act="ics">Fristen in den Kalender (.ics)</button></div>`;
-  h+=`<h2>Wohnungen</h2><div class="cards">${db.objs.map(o=>{
+  h+=`<h2>Wohnungen</h2><div class="crows">${db.objs.map(o=>{
     const t=db.tens.filter(x=>x.objId===o.id).sort((a,b)=>(b.start||'')<(a.start||'')?-1:1)[0], a=t&&isActive(t,td);
-    if(!t) return `<div class="tcard"><div class="t">${esc(o.name||'Wohnung')}</div><div class="a">${esc(o.adresse)}</div><div class="p"><span class="pill p-none">Kein Mietverhältnis</span></div></div>`;
-    const st=stateAt(t,ym), s=saldo(t);
-    return `<a class="tcard" href="#/t/${t.id}" data-nav><div class="t">${esc(o.name||'Wohnung')}</div><div class="a">${a?esc(t.mieter||'Mieter ohne Namen'):'Leer, zuletzt '+esc(t.mieter||'')}</div>
-      <div class="m"><span><b>${eur2(st.kalt)}</b> kalt</span>${o.qm>0?`<span><b>${eur2(st.kalt/o.qm)}</b>/m²</span>`:''}</div>
-      <div class="p"><span class="pill p-acc">${ART[t.art]}</span>${a?(s>0.5?`<span class="pill p-bad">Rückstand ${eur(s)}</span>`:'<span class="pill p-good">Zahlungen in Ordnung</span>'):'<span class="pill p-none">Leer</span>'}</div></a>`; }).join('')}</div>`;
+    if(!t) return `<div class="crow"><div class="hd"><div><div class="n">${esc(o.name||'Wohnung')}</div><div class="sb">${esc(o.adresse)}</div></div><span class="rs"><span class="pill p-none">Kein Mietverhältnis</span></span></div></div>`;
+    const st=stateAt(t,ym);
+    return `<a class="crow" href="#/t/${t.id}" data-nav><div class="hd"><div><div class="n">${esc(o.name||'Wohnung')}</div><div class="sb">${a?esc(t.mieter||'Mieter ohne Namen'):'Leer, zuletzt '+esc(t.mieter||'')} · ${ART[t.art]}</div></div><div class="r">${ttRent(st,t)}</div><div class="sb">${o.qm>0?eur2(st.kalt/o.qm)+' pro m²':''}</div><span class="rs">${ttStatus(t,a)}</span></div></a>`; }).join('')}</div>`;
   return h+'</main>'+tabbar('home');
 }
 
@@ -521,13 +571,14 @@ function viewPay(){
 function viewTen(){
   const cards=db.objs.map(o=>{
     const ts=db.tens.filter(t=>t.objId===o.id).sort((a,b)=>(b.start||'')<(a.start||'')?-1:1);
-    return `<h2>${esc(o.name||'Wohnung')}${o.adresse?' · '+esc(o.adresse):''}</h2><div class="cards">${ts.map(t=>{
-      const st=stateAt(t,ymOf(today())), a=isActive(t);
-      return `<a class="tcard" href="#/t/${t.id}" data-nav><div class="t">${esc(t.mieter||'Mieter ohne Namen')}</div><div class="a">${t.start?'seit '+fmtD(t.start):'Beginn offen'}${t.ende?' bis '+fmtD(t.ende):''}</div>
-        <div class="m"><span><b>${eur2(st.kalt)}</b> kalt</span><span><b>${eur2(st.kalt+st.nk+(t.stell||0))}</b> warm</span>${o.qm>0?`<span><b>${eur2(st.kalt/o.qm)}</b>/m²</span>`:''}</div>
-        <div class="p"><span class="pill p-acc">${ART[t.art]}</span>${a?'<span class="pill p-good">Läuft</span>':'<span class="pill p-none">Beendet</span>'}${(t.kaution||{}).betrag>0?`<span class="pill p-none">Kaution ${eur(t.kaution.betrag)}</span>`:''}</div></a>`; }).join('')||'<div class="empty">Kein Mietverhältnis</div>'}</div>`;
+    return `<h2>${esc(o.name||'Wohnung')}${o.adresse?' · '+esc(o.adresse):''}</h2><div class="crows">${ts.map(t=>{
+      const st=stateAt(t,ymOf(today())), a=isActive(t), kb=(t.kaution||{}).betrag>0;
+      return `<details class="crow" data-crow="${t.id}" ${ui['c:'+t.id]?'open':''}><summary><div class="hd"><div><div class="n">${esc(t.mieter||'Mieter ohne Namen')}</div><div class="sb">${t.start?'seit '+fmtD(t.start):'Beginn offen'}${t.ende?' bis '+fmtD(t.ende):''}</div></div><div class="r">${ttRent(st,t)}</div><div class="sb">${ART[t.art]}</div><span class="rs">${a?'<span class="pill p-good">Läuft</span>':'<span class="pill p-none">Beendet</span>'}</span></div></summary>
+        <div class="bd"><div class="kv"><span>Kaltmiete Wohnung</span><b>${eur2(st.kalt)}</b></div>${stellOf(t)>0?`<div class="kv"><span>Stellplatz oder Garage</span><b>${eur2(stellOf(t))}</b></div>`:''}<div class="kv"><span>Warmmiete gesamt<small>inkl. Nebenkosten und Stellplatz</small></span><b>${eur2(st.kalt+st.nk+stellOf(t))}</b></div>${o.qm>0?`<div class="kv"><span>Kaltmiete pro m²</span><b>${eur2(st.kalt/o.qm)}</b></div>`:''}${kb?`<div class="kv"><span>Kaution</span><b>${eur(t.kaution.betrag)}</b></div>`:''}
+        <div class="row-actions"><a class="btn small primary" href="#/t/${t.id}" data-nav>Öffnen</a></div></div></details>`; }).join('')||'<div class="empty">Kein Mietverhältnis</div>'}</div>`;
   }).join('');
-  return bar('Verträge','Mietverhältnisse')+`<main><div class="row-actions"><button class="btn primary" data-act="newten">Wohnung anlegen</button></div>${cards||`<div class="empty"><b>Noch keine Wohnung</b>Lege die erste Wohnung mit Mieter an.</div>`}</main>`+tabbar('ten');
+  const nAct=db.tens.filter(t=>isActive(t)).length;
+  return bar('Verträge','Mietverhältnisse',null,'',db.tens.length?`<span><b>${nAct}</b> laufend</span><span><b>${db.tens.length-nAct}</b> beendet</span><span><b>${db.objs.length}</b> Wohnung${db.objs.length===1?'':'en'}</span>`:'')+`<main><div class="row-actions"><button class="btn primary" data-act="newten">Wohnung anlegen</button></div>${cards||`<div class="empty"><b>Noch keine Wohnung</b>Lege die erste Wohnung mit Mieter an.</div>`}</main>`+tabbar('ten');
 }
 
 function chgRow(t,c,i){
@@ -537,11 +588,16 @@ function chgRow(t,c,i){
     <label>Neue Nebenkosten-Vorauszahlung<span class="unit"><input inputmode="decimal" data-ref="c:${t.id}:${i}:nk" data-ty="num" data-d="2" data-null="1" value="${c.nk===null||c.nk===undefined?'':fmtIn(c.nk,2)}" placeholder="unverändert"><i>€</i></span></label>
     <div class="full"><button class="lnk" data-act="delchg" data-id="${t.id}" data-i="${i}">${pend==='dc'+t.id+i?'Sicher löschen?':'Eintrag löschen'}</button></div></div>`;
 }
+function tstripHtml(t){
+  const st=stateAt(t,ymOf(today())), sd=saldo(t), a=isActive(t);
+  return `<span>Kalt <b>${eur2(st.kalt)}</b></span>`+(stellOf(t)>0?`<span>+ Stellplatz <b>${eur2(stellOf(t))}</b></span>`:'')+(a?(sd>0.5?`<span class="pill p-bad">Rückstand ${eur(sd)}</span>`:'<span class="pill p-good">in Ordnung</span>'):'<span class="pill p-none">Beendet</span>');
+}
 function tsumHtml(t,o){
   const ym=ymOf(today()), st=stateAt(t,ym), nxt=(t.changes||[]).filter(c=>c.ab&&c.ab>ym).sort((a,b)=>a.ab<b.ab?-1:1)[0];
   const last=lastChangeYm(t);
-  return `<div class="kv"><span>Kaltmiete heute</span><b>${eur2(st.kalt)}</b></div>
-    <div class="kv"><span>Warmmiete heute<small>Kaltmiete, Nebenkosten und Stellplatz</small></span><b>${eur2(st.kalt+st.nk+(t.stell||0))}</b></div>
+  return `<div class="kv"><span>Kaltmiete Wohnung heute</span><b>${eur2(st.kalt)}</b></div>
+    ${stellOf(t)>0?`<div class="kv"><span>Stellplatz oder Garage<small>eigene Mietposition</small></span><b>${eur2(stellOf(t))}</b></div><div class="kv"><span>Kaltmiete gesamt<small>Wohnung plus Stellplatz, wie im Cockpit</small></span><b>${eur2(st.kalt+stellOf(t))}</b></div>`:''}
+    <div class="kv"><span>Warmmiete heute<small>Kaltmiete, Nebenkosten und Stellplatz</small></span><b>${eur2(st.kalt+st.nk+stellOf(t))}</b></div>
     <div class="kv"><span>Kaltmiete pro m²</span><b>${o.qm>0?eur2(st.kalt/o.qm):'–'}</b></div>
     <div class="kv"><span>Letzte Änderung</span><b>${last?fmtYm(last):'–'}</b></div>
     <div class="kv"><span>Nächste geplante Änderung</span><b>${nxt?fmtYm(nxt.ab)+': '+eur2(nxt.kalt):'–'}</b></div>`;
@@ -560,14 +616,14 @@ function viewTdet(r){
       <div class="full"><button class="btn" data-act="genstaffel" data-id="${t.id}">Stufen erzeugen</button></div></div>`:'';
   const idx=t.art==='index'?`<div class="fields sep">${F('Index bei Vertragsbeginn oder letzter Anpassung','t:'+t.id+':idxBasis',t.idxBasis,'num',{d:1,full:1,ph:'z. B. 119,4'})}${F('Monat des Basisindex','t:'+t.id+':idxMonat',t.idxMonat||'','txt',{type:'month',full:1})}
       <div class="full note" style="margin:0">Index: Verbraucherpreisindex für Deutschland (Statistisches Bundesamt). Anpassung frühestens 12 Monate nach der letzten Mietänderung, schriftlich mit Angabe der Indexwerte.</div></div>`:'';
-  return bar(o.name||'Wohnung',t.mieter||'Mietverhältnis','#/vertraege')+`<main>
+  return bar(o.name||'Wohnung',t.mieter||'Mietverhältnis','#/vertraege',null,tstripHtml(t))+`<main>
    <h2>Auf einen Blick</h2><div class="card" id="tsum">${tsumHtml(t,o)}</div>
    <h2>Wohnung</h2><div class="card"><div class="fields">${F('Bezeichnung','o:'+o.id+':name',o.name,'txt',{full:1,ph:'z. B. Wohnung 3, 1. OG'})}${F('Adresse','o:'+o.id+':adresse',o.adresse,'txt',{full:1})}${F('Wohnfläche','o:'+o.id+':qm',o.qm,'num',{unit:'m²'})}</div></div>
    <h2>Mieter</h2><div class="card"><div class="fields">${F('Name','t:'+t.id+':mieter',t.mieter,'txt',{full:1})}${F('Telefon','t:'+t.id+':tel',t.tel,'txt',{type:'tel'})}${F('E-Mail','t:'+t.id+':mail',t.mail,'txt',{type:'email'})}${F('Personen im Haushalt','t:'+t.id+':personen',t.personen,'num',{d:0})}</div>
      ${t.tel?`<div class="fields sep"><a class="btn" href="tel:${esc(t.tel.replace(/[^\d+]/g,''))}">Anrufen</a></div>`:''}</div>
    <h2>Mietvertrag</h2><div class="card"><div class="fields">${F('Mietbeginn','t:'+t.id+':start',t.start,'txt',{type:'date'})}${F('Mietende (leer = unbefristet)','t:'+t.id+':ende',t.ende,'txt',{type:'date'})}
      <label class="fld full">Mietart<select data-ref="t:${t.id}:art" data-ty="txt" data-rerender="1"><option value="fest" ${t.art==='fest'?'selected':''}>Festmiete (Erhöhung bis zur Vergleichsmiete)</option><option value="staffel" ${t.art==='staffel'?'selected':''}>Staffelmiete</option><option value="index" ${t.art==='index'?'selected':''}>Indexmiete</option></select></label>
-     ${F('Anfangsmiete kalt','t:'+t.id+':kalt0',t.kalt0,'num',{unit:'€'})}${F('Nebenkosten-Vorauszahlung','t:'+t.id+':nk',t.nk,'num',{unit:'€'})}${F('Stellplatz oder Garage','t:'+t.id+':stell',t.stell,'num',{unit:'€'})}</div>${idx}${stg}</div>
+     ${F('Anfangsmiete kalt','t:'+t.id+':kalt0',t.kalt0,'num',{unit:'€'})}${F('Nebenkosten-Vorauszahlung','t:'+t.id+':nk',t.nk,'num',{unit:'€'})}${F('Stellplatz oder Garage, eigene Position','t:'+t.id+':stell',t.stell,'num',{unit:'€'})}</div>${idx}${stg}</div>
    <p class="note">Beträge gelten pro Monat. Eine Staffelmiete kann nicht mit einer Indexmiete kombiniert werden. Bei Staffelmiete gilt die Mietpreisbremse für die Anfangsmiete.</p>
    <h2>Mietverlauf</h2><div class="card">${chg.length?chg.map(x=>chgRow(t,x.c,x.i)).join(''):'<div class="kv"><span class="note" style="margin:0">Noch keine Änderung seit Mietbeginn.</span><span></span></div>'}
      <div style="padding:10px 14px;border-top:1px solid var(--line)"><button class="btn small" data-act="addchg" data-id="${t.id}">Änderung hinzufügen</button></div></div>
@@ -770,7 +826,7 @@ function render(keep){
   const r=route(), y=keep?window.scrollY:0;
   let h;
   switch(r.v){ case 'pay':h=viewPay();break; case 'ten':h=viewTen();break; case 'tdet':h=viewTdet(r);break; case 'abr':h=viewAbr();break; case 'calc':h=viewCalc();break; case 'brief':h=viewBrief();break; case 'set':h=viewSet();break; default:h=viewHome(); }
-  app.innerHTML=h;
+  app.innerHTML=h; foldify(r.v);
   if(r.v==='set'){ const b=$('#backup'); if(b) b.value=JSON.stringify(db); }
   window.scrollTo(0,y);
 }
@@ -781,6 +837,7 @@ document.addEventListener('click',e=>{
   if(nv){ e.preventDefault(); nav(nv.getAttribute('href')); return; }
   const b=e.target.closest('[data-act]'); if(!b) return;
   const act=b.dataset.act, id=b.dataset.id;
+  if(act==='foldall'){ document.querySelectorAll('details.fold').forEach(d=>{ d.open=b.dataset.v==='1'; }); return; }
   if(act==='newten'){ const o=newObj({name:'Wohnung '+(db.objs.length+1)}); const t=newTen(o.id,{start:today()}); save(); nav('#/t/'+t.id); return; }
   if(act==='sample'){
     const y=+today().slice(0,4);
@@ -850,7 +907,7 @@ document.addEventListener('input',e=>{
   else if(t.dataset.ty==='bool') v=t.checked; else v=t.value;
   setPath(rf.obj,rf.key,v);
   const r=route();
-  if(r.v==='tdet'){ const te=getTen(r.id), el=$('#tsum'); if(el) el.innerHTML=tsumHtml(te,getObj(te.objId)||{}); }
+  if(r.v==='tdet'){ const te=getTen(r.id), el=$('#tsum'); if(el) el.innerHTML=tsumHtml(te,getObj(te.objId)||{}); const sp=document.querySelector('.bar .strip'); if(sp) sp.innerHTML=tstripHtml(te); }
   if(r.v==='abr'){ const te=getTen(abrT), rec=abrRec(abrT,abrY), c=abrCalc(te,abrY,rec); const el=$('#abrRes'); if(el){ const keep=$('#abrTxt'); el.innerHTML=abrRes(te,rec,c); } }
   if(r.v==='calc'){ const el=$('#calcRes'); if(el) el.innerHTML=calcRes(); }
   if(t.dataset.ref.indexOf('b:')===0){ brief.text=''; if(!brief.dirty){ briefRebuild(); } }
