@@ -538,6 +538,61 @@ function viewHome(){
   return h+'</main>'+tabbar('home');
 }
 
+
+/* ---------- Zahlungen rückwirkend erfassen ---------- */
+let bulk={tid:'all',von:'',bis:addM(ymOf(today()),-1),mode:'soll',betrag:'',tag:1,note:''};
+function bulkPlan(){
+  const cur=ymOf(today()), to=(bulk.bis&&bulk.bis<=cur)?bulk.bis:cur;
+  const ts=bulk.tid==='all'?db.tens:[getTen(bulk.tid)].filter(Boolean);
+  const items=[]; let skipped=0, sum=0; const per=[];
+  ts.forEach(t=>{ const from=bulk.von||ymOf(t.start); if(!from||from>to) return; let n=0, s0=0, first='', last='';
+    monthsList(from,to).forEach(ym=>{ const so=soll(t,ym); if(!so) return; const rest=r2(so.total-ist(t,ym));
+      if(rest<=0.005){ skipped++; return; }
+      const amt=bulk.mode==='fix'?(parseDE(String(bulk.betrag))||0):rest; if(!(amt>0)) return;
+      items.push({t,ym,amt}); n++; s0+=amt; if(!first) first=ym; last=ym; });
+    if(n){ per.push({t,n,sum:s0,first,last}); sum+=s0; } });
+  return {items,skipped,sum:r2(sum),per,to};
+}
+function bulkPrevHtml(){
+  const pl=bulkPlan();
+  if(bulk.mode==='fix'&&!(parseDE(String(bulk.betrag))>0)) return '<span class="note" style="margin:0">Trage einen Betrag pro Monat ein.</span>';
+  if(!pl.items.length) return `<span class="note" style="margin:0">Keine Monate zu erfassen.${pl.skipped?` ${pl.skipped} Monat${pl.skipped===1?' ist':'e sind'} schon vollständig bezahlt.`:' Prüfe den Zeitraum und den Mietbeginn.'}</span>`;
+  return `<b>${pl.items.length} Zahlung${pl.items.length===1?'':'en'}, zusammen ${eur2(pl.sum)}</b>`+pl.per.map(x=>`<div class="note" style="margin:4px 0 0">${esc(tenName(x.t))}: ${fmtYm(x.first)} bis ${fmtYm(x.last)}, ${x.n} Monat${x.n===1?'':'e'}, ${eur2(x.sum)}</div>`).join('')+(pl.skipped?`<div class="note" style="margin:4px 0 0">${pl.skipped} bereits vollständig bezahlte${pl.skipped===1?'r Monat wird':' Monate werden'} übersprungen.</div>`:'');
+}
+function bulkHtml(){
+  if(!db.tens.length) return '';
+  const lb=db.lastBulk, ex=lb&&db.pays.some(p=>p.bid===lb.bid);
+  const open='pay:Rückwirkend erfassen' in ui?!!ui['pay:Rückwirkend erfassen']:false;
+  return `<details class="fold" data-fold="pay:Rückwirkend erfassen" ${open?'open':''} style="margin:0 0 12px"><summary><h2>Rückwirkend erfassen</h2></summary><div class="fb"><div class="card" id="bkCard"><div class="fields">
+    <div class="note" style="margin:0;grid-column:1/-1">Erfasst viele vergangene Monate auf einmal. Monate, die schon voll bezahlt sind, werden übersprungen. Rückgängig machen kannst du es sofort danach.</div>
+    <label class="fld" style="grid-column:1/-1">Mietverhältnis<select id="bk-tid"><option value="all" ${bulk.tid==='all'?'selected':''}>Alle Mietverhältnisse</option>${db.tens.map(t=>`<option value="${t.id}" ${bulk.tid===t.id?'selected':''}>${esc(tenName(t))}</option>`).join('')}</select></label>
+    <label class="fld">Von (leer = Mietbeginn)<input type="month" id="bk-von" value="${esc(bulk.von)}"></label>
+    <label class="fld">Bis (einschließlich)<input type="month" id="bk-bis" value="${esc(bulk.bis)}" max="${ymOf(today())}"></label>
+    <label class="fld" style="grid-column:1/-1">Betrag<select id="bk-mode"><option value="soll" ${bulk.mode==='soll'?'selected':''}>Soll laut Mietverlauf (volle Miete)</option><option value="fix" ${bulk.mode==='fix'?'selected':''}>Fester Betrag pro Monat</option></select></label>
+    <label class="fld" id="bk-bw" style="${bulk.mode==='fix'?'':'display:none'}">Betrag pro Monat<span class="unit"><input id="bk-b" inputmode="decimal" style="font-family:var(--font-mono);text-align:right" value="${esc(bulk.betrag)}"><i>€</i></span></label>
+    <label class="fld">Zahlungstag im Monat<input id="bk-tag" inputmode="numeric" value="${bulk.tag}"></label>
+    <label class="fld" style="grid-column:1/-1">Notiz<input type="text" id="bk-n" value="${esc(bulk.note)}" placeholder="z. B. Dauerauftrag, nachgetragen"></label>
+    <div class="card" style="background:var(--surface2);padding:10px 12px;grid-column:1/-1" id="bkPrev">${bulkPrevHtml()}</div>
+    <div class="row-actions" style="margin:0;grid-column:1/-1"><button class="btn primary" style="width:100%" data-act="bkrun">Zahlungen erfassen</button></div>
+    ${ex?`<div class="ok" style="margin:0;grid-column:1/-1">Zuletzt erfasst: ${esc(lb.label)}. <button class="lnk" data-act="bkundo">Rückgängig machen</button></div>`:''}
+  </div></div></div></details>`;
+}
+document.addEventListener('input',e=>{ const t=e.target; if(!t.id||t.id.indexOf('bk-')!==0) return;
+  if(t.id==='bk-tid') bulk.tid=t.value; else if(t.id==='bk-von') bulk.von=t.value; else if(t.id==='bk-bis') bulk.bis=t.value;
+  else if(t.id==='bk-mode'){ bulk.mode=t.value; const w=$('#bk-bw'); if(w) w.style.display=bulk.mode==='fix'?'':'none'; }
+  else if(t.id==='bk-b') bulk.betrag=t.value; else if(t.id==='bk-tag') bulk.tag=t.value.replace(/\D/g,'').slice(0,2); else if(t.id==='bk-n') bulk.note=t.value;
+  const pv=$('#bkPrev'); if(pv) pv.innerHTML=bulkPrevHtml(); });
+document.addEventListener('change',e=>{ const t=e.target; if(t.id&&t.id.indexOf('bk-')===0&&t.id!=='bk-n'){ const pv=$('#bkPrev'); if(pv){ if(t.id==='bk-tid') bulk.tid=t.value; if(t.id==='bk-von') bulk.von=t.value; if(t.id==='bk-bis') bulk.bis=t.value; if(t.id==='bk-mode') bulk.mode=t.value; pv.innerHTML=bulkPrevHtml(); } } });
+function bulkRun(){
+  const pl=bulkPlan(); if(!pl.items.length){ toast('Keine Monate zu erfassen.'); return; }
+  const bid='b'+uid(), day=Math.min(28,Math.max(1,parseInt(bulk.tag,10)||1)), td=today();
+  pl.items.forEach(it=>{ let d=it.ym+'-'+p2(day); if(d>td) d=td; db.pays.push({id:uid(),tid:it.t.id,datum:d,monat:it.ym,betrag:it.amt,note:bulk.note||'Sammelerfassung',bid}); });
+  const first=pl.items.reduce((a,x)=>x.ym<a?x.ym:a,'9999-99'), last=pl.items.reduce((a,x)=>x.ym>a?x.ym:a,'0000-00');
+  db.lastBulk={bid,label:pl.items.length+' Zahlungen, '+fmtYm(first)+' bis '+fmtYm(last)+', '+eur2(pl.sum)};
+  save(); render(true); toast(pl.items.length+' Zahlungen erfasst.');
+}
+function bulkUndo(){ const lb=db.lastBulk; if(!lb) return; const n=db.pays.filter(p=>p.bid===lb.bid).length; db.pays=db.pays.filter(p=>p.bid!==lb.bid); db.lastBulk=null; save(); render(true); toast(n+' Zahlungen entfernt.'); }
+
 function viewPay(){
   const cur=ymOf(today()), td=today();
   const rows=db.tens.filter(t=>occ(t,payMonth)>0);
@@ -562,7 +617,7 @@ function viewPay(){
       ${pays.map(p=>`<div class="kv"><span><small>${fmtD(p.datum)}${p.note?' · '+esc(p.note):''}</small></span><span><b>${eur2(p.betrag)}</b> <button class="lnk" data-act="paydel" data-id="${p.id}">${pend==='pd'+p.id?'Sicher?':'Löschen'}</button></span></div>`).join('')}
       ${form||`<div style="padding:10px 14px;border-top:1px solid var(--line)"><button class="btn small" data-act="payform" data-id="${t.id}">Zahlung erfassen</button> ${rest>0.005&&payMonth<=cur?`<button class="btn small" data-act="payfull" data-id="${t.id}">Voll bezahlt heute</button>`:''}</div>`}</div>`;
   }).join('');
-  return bar('Mieteingang','Zahlungen')+`<main><div class="mnav"><button class="btn" data-act="pm" data-v="-1" aria-label="Vormonat">‹</button><b>${MON[+payMonth.slice(5,7)-1]} ${payMonth.slice(0,4)}</b><button class="btn" data-act="pm" data-v="1" aria-label="Folgemonat">›</button></div>
+  return bar('Mieteingang','Zahlungen')+`<main>${bulkHtml()}<div class="mnav"><button class="btn" data-act="pm" data-v="-1" aria-label="Vormonat">‹</button><b>${MON[+payMonth.slice(5,7)-1]} ${payMonth.slice(0,4)}</b><button class="btn" data-act="pm" data-v="1" aria-label="Folgemonat">›</button></div>
    ${yearBand()}
    ${rows.length?`<div class="kpis" style="margin-bottom:12px">${kpi('Soll',eur2(totS))}${kpi('Eingegangen',eur2(totI),totS-totI>0.005?'Offen '+eur2(totS-totI):'Vollständig',totS-totI>0.005?'':'t-good')}</div>${items}`:`<div class="empty"><b>Kein Mietverhältnis in diesem Monat</b>Wähle einen anderen Monat oder lege ein Mietverhältnis an.</div>`}
    <p class="note">Fällig sind Zahlungen laut Gesetz bis zum dritten Werktag, die App wertet ab dem 4. des Monats als überfällig. Erste und letzte Monate werden anteilig berechnet.</p></main>`+tabbar('pay');
@@ -838,6 +893,8 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]'); if(!b) return;
   const act=b.dataset.act, id=b.dataset.id;
   if(act==='foldall'){ document.querySelectorAll('details.fold').forEach(d=>{ d.open=b.dataset.v==='1'; }); return; }
+  if(act==='bkrun'){ bulkRun(); return; }
+  if(act==='bkundo'){ bulkUndo(); return; }
   if(act==='newten'){ const o=newObj({name:'Wohnung '+(db.objs.length+1)}); const t=newTen(o.id,{start:today()}); save(); nav('#/t/'+t.id); return; }
   if(act==='sample'){
     const y=+today().slice(0,4);
